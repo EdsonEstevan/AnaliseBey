@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { prisma } from '../../db/prisma';
 import { badRequest, notFound } from '../../utils/apiError';
-import { BattlePayload } from '../../types/dto';
+import { BattlePayload, BattleTurnPayload } from '../../types/dto';
 import { ensureStringArray } from '../../utils/json';
 import { BattleOutcome } from '../../types/enums';
 
@@ -22,9 +22,109 @@ const battleInclude = {
     },
   },
   arena: true,
-};
+} satisfies Prisma.BattleInclude;
 
 type BattleWithRelations = Prisma.BattleGetPayload<{ include: typeof battleInclude }>;
+
+type BattleTurn = {
+  winner: BattleOutcome;
+  victoryType?: string | null;
+  notes?: string | null;
+};
+
+const victoryPoints = new Map<string, number>([
+  ['overfinish', 2],
+  ['burstfinish', 2],
+  ['knockout', 2],
+  ['spinfinish', 1],
+  ['equalizacao', 1],
+  ['extremefinish', 3],
+]);
+
+function normalizeVictoryKey(value?: string | null) {
+  if (!value) return '';
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]/g, '');
+}
+
+function pointsForVictory(value?: string | null) {
+  const key = normalizeVictoryKey(value);
+  if (!key) return 1;
+  return victoryPoints.get(key) ?? 1;
+}
+
+function sanitizeTurns(turns?: BattleTurnPayload[] | null): BattleTurn[] {
+  if (!turns?.length) return [];
+  return turns
+    .filter((turn) => Boolean(turn?.winner))
+    .map((turn) => ({
+      winner: turn.winner,
+      victoryType: turn.victoryType?.trim() || null,
+      notes: turn.notes?.trim() || null,
+    }));
+}
+
+function parseBattleTurns(value: Prisma.JsonValue | null | undefined): BattleTurn[] {
+  if (!value || !Array.isArray(value)) return [];
+  return value
+    .map((entry) => entry as Partial<BattleTurn>)
+    .filter((entry): entry is BattleTurn =>
+      entry !== null &&
+      typeof entry === 'object' &&
+      entry.winner !== undefined &&
+      (entry.winner === 'COMBO_A' || entry.winner === 'COMBO_B' || entry.winner === 'DRAW'),
+    )
+    .map((entry) => ({
+      winner: entry.winner,
+      victoryType: entry.victoryType ?? null,
+      notes: entry.notes ?? null,
+    }));
+}
+
+function summarizeVictoryType(turns: BattleTurn[]) {
+  if (!turns.length) return null;
+  const tally = turns
+    .map((turn) => turn.victoryType?.trim())
+    .filter((value): value is string => Boolean(value))
+    .reduce<Record<string, number>>((acc, key) => {
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+  const [top] = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+  return top?.[0] ?? null;
+}
+
+function computeScoreFromTurns(turns: BattleTurn[]) {
+  if (!turns.length) return null;
+  let comboAPoints = 0;
+  let comboBPoints = 0;
+
+  turns.forEach((turn) => {
+    const value = pointsForVictory(turn.victoryType);
+    if (turn.winner === 'COMBO_A') comboAPoints += value;
+    if (turn.winner === 'COMBO_B') comboBPoints += value;
+  });
+
+  if (comboAPoints === 0 && comboBPoints === 0) {
+    return null;
+  }
+
+  const result: BattleOutcome =
+    comboAPoints === comboBPoints
+      ? 'DRAW'
+      : comboAPoints > comboBPoints
+        ? 'COMBO_A'
+        : 'COMBO_B';
+
+  return {
+    score: `${comboAPoints}-${comboBPoints}`,
+    result,
+    victoryType: summarizeVictoryType(turns),
+  };
+}
 
 function serializeCombo(combo: BattleWithRelations['comboA']) {
   return {
@@ -43,6 +143,7 @@ const serializeBattle = (battle: BattleWithRelations) => ({
   arena: battle.arena
     ? { ...battle.arena, tags: ensureStringArray(battle.arena.tags as unknown) }
     : null,
+  turns: parseBattleTurns(battle.turns as Prisma.JsonValue),
 });
 
 async function ensureCombo(id: string) {
@@ -99,13 +200,17 @@ export async function createBattle(payload: BattlePayload) {
     ensureCombo(payload.comboBId),
   ]);
 
+  const turns = sanitizeTurns(payload.turns);
+  const summary = computeScoreFromTurns(turns);
+
   const battle = await prisma.battle.create({
     data: {
       comboAId: comboA.id,
       comboBId: comboB.id,
-      result: payload.result,
-      score: payload.score,
-      victoryType: payload.victoryType,
+      result: summary?.result ?? payload.result,
+      score: summary?.score ?? payload.score,
+      victoryType: payload.victoryType ?? summary?.victoryType ?? null,
+      turns: turns.length ? (turns as unknown as Prisma.InputJsonValue) : undefined,
       arenaId: payload.arenaId,
       notes: payload.notes,
       occurredAt: payload.occurredAt ? new Date(payload.occurredAt) : new Date(),
@@ -128,14 +233,23 @@ export async function updateBattle(id: string, payload: Partial<BattlePayload>) 
     await ensureCombo(payload.comboBId);
   }
 
+  const turnsProvided = payload.turns !== undefined;
+  const turns = turnsProvided ? sanitizeTurns(payload.turns ?? []) : parseBattleTurns(existing.turns as Prisma.JsonValue);
+  const summary = turnsProvided ? computeScoreFromTurns(turns) : null;
+
   const battle = await prisma.battle.update({
     where: { id },
     data: {
       comboAId: payload.comboAId ?? existing.comboAId,
       comboBId: payload.comboBId ?? existing.comboBId,
-      result: payload.result ?? existing.result,
-      score: payload.score ?? existing.score,
-      victoryType: payload.victoryType ?? existing.victoryType,
+      result: summary?.result ?? payload.result ?? existing.result,
+      score: summary?.score ?? payload.score ?? existing.score,
+      victoryType: payload.victoryType ?? summary?.victoryType ?? existing.victoryType,
+      turns: turnsProvided
+        ? turns.length
+          ? (turns as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull
+        : undefined,
       arenaId: payload.arenaId ?? existing.arenaId,
       notes: payload.notes ?? existing.notes,
       occurredAt: payload.occurredAt

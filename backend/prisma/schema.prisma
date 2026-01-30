@@ -60,6 +60,7 @@ model Combo {
 
   battlesAsComboA Battle[] @relation("ComboA")
   battlesAsComboB Battle[] @relation("ComboB")
+  deckSlots      DeckSlot[]
 }
 
 model Battle {
@@ -69,6 +70,7 @@ model Battle {
   result      String
   score       String?
   victoryType String?
+  turns       Json?
   arenaId     String?
   notes       String?
   occurredAt  DateTime? @default(now())
@@ -78,4 +80,29 @@ model Battle {
   comboA Combo @relation("ComboA", fields: [comboAId], references: [id])
   comboB Combo @relation("ComboB", fields: [comboBId], references: [id])
   arena  Arena? @relation(fields: [arenaId], references: [id])
+}
+
+model Deck {
+  id        String     @id @default(cuid())
+  name      String
+  side      String?
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  slots DeckSlot[]
+}
+
+model DeckSlot {
+  id        String   @id @default(cuid())
+  deckId    String
+  comboId   String
+  position  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deck  Deck  @relation(fields: [deckId], references: [id])
+  combo Combo @relation(fields: [comboId], references: [id])
+
+  @@unique([deckId, position])
 }

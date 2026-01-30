@@ -38,4 +38,18 @@ export type BattlePayload = {
   arenaId?: string;
   notes?: string;
   occurredAt?: Date | string | null;
+  turns?: BattleTurnPayload[];
+};
+
+export type BattleTurnPayload = {
+  winner: BattleOutcome;
+  victoryType?: string;
+  notes?: string;
+};
+
+export type DeckPayload = {
+  name: string;
+  side?: 'A' | 'B' | 'FLEX';
+  notes?: string;
+  comboIds: string[];
 };

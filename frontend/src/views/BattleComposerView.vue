@@ -49,6 +49,33 @@
           <span>Arena: {{ selectedArena?.name || 'Não definida' }}</span>
         </div>
       </div>
+
+      <div v-if="!isEdit && !isView" class="flex flex-wrap gap-4 w-full text-sm mt-4">
+        <label class="flex-1 min-w-[220px]">
+          <span class="text-xs uppercase tracking-wide text-slate-500">Deck para Combo A</span>
+          <select v-model="deckSelections.A" class="input mt-1">
+            <option value="">Nenhum deck</option>
+            <option v-for="deck in decksStore.items" :key="deck.id" :value="deck.id">
+              {{ deck.name }}
+            </option>
+          </select>
+        </label>
+        <label class="flex-1 min-w-[220px]">
+          <span class="text-xs uppercase tracking-wide text-slate-500">Deck para Combo B</span>
+          <select v-model="deckSelections.B" class="input mt-1">
+            <option value="">Nenhum deck</option>
+            <option v-for="deck in decksStore.items" :key="deck.id" :value="deck.id">
+              {{ deck.name }}
+            </option>
+          </select>
+        </label>
+        <RouterLink
+          to="/decks"
+          class="self-end px-4 py-2 rounded-xl border border-slate-700 text-xs text-slate-300 hover:text-white"
+        >
+          Gerenciar decks
+        </RouterLink>
+      </div>
     </section>
 
     <div class="grid xl:grid-cols-[2fr,1fr] gap-6">
@@ -64,9 +91,19 @@
             :key="turn.id"
             class="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 space-y-3"
           >
-            <div class="flex items-center justify-between">
-              <p class="text-sm text-slate-400">Turno {{ index + 1 }}</p>
-              <span class="text-xs text-slate-500">{{ winnerBadge(turn.winner) }}</span>
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-sm text-slate-400">Turno {{ index + 1 }}</p>
+                <span class="text-xs text-slate-500">{{ winnerBadge(turn.winner) }}</span>
+              </div>
+              <button
+                v-if="turns.length > 1 && !isView"
+                type="button"
+                class="text-xs text-rose-300 hover:text-rose-200"
+                @click="removeTurn(index)"
+              >
+                Remover
+              </button>
             </div>
             <label class="text-xs uppercase tracking-wide text-slate-500">
               Vencedor
@@ -90,6 +127,14 @@
             </label>
           </article>
         </div>
+        <button
+          type="button"
+          class="w-full border border-dashed border-slate-700 rounded-xl py-2 text-sm text-slate-300 hover:text-white"
+          :disabled="isView || turns.length >= MAX_TURNS"
+          @click="addTurn"
+        >
+          + Adicionar turno (máx. {{ MAX_TURNS }})
+        </button>
         <div class="grid gap-4 lg:grid-cols-2">
           <label class="text-sm">
             <span class="text-slate-400">Tipo geral de vitória</span>
@@ -341,6 +386,126 @@
         </article>
       </aside>
     </div>
+
+    <section
+      v-if="!isEdit && !isView"
+      class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4"
+    >
+      <header class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Simultâneo</p>
+          <h3 class="text-2xl font-semibold">Console 3on3</h3>
+          <p class="text-sm text-slate-400">Gerencie até 3 batalhas em paralelo usando os decks selecionados.</p>
+        </div>
+        <span class="text-xs text-slate-500">{{ multiBattles.length }} / {{ MAX_MULTI_BATTLES }} batalhas</span>
+      </header>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <article
+          v-for="(battle, index) in multiBattles"
+          :key="battle.id"
+          class="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 space-y-3"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase tracking-wide text-slate-500">{{ battle.title }}</p>
+              <p class="text-2xl font-mono">{{ multiBattleScore(battle) }}</p>
+              <span :class="['text-xs uppercase font-semibold', resultColor(battle.winner)]">
+                {{ resultLabel(battle.winner) }}
+              </span>
+            </div>
+            <button
+              v-if="multiBattles.length > 1"
+              type="button"
+              class="text-xs text-rose-300 hover:text-rose-200"
+              @click="removeMultiBattle(index)"
+            >
+              Remover
+            </button>
+          </div>
+
+          <div class="grid gap-3">
+            <label class="text-xs uppercase tracking-wide text-slate-500">
+              Combo A
+              <select v-model="battle.comboAId" class="input mt-1">
+                <option value="">Selecione um combo</option>
+                <option v-for="combo in combosStore.items" :key="combo.id" :value="combo.id">
+                  {{ combo.name }}
+                </option>
+              </select>
+            </label>
+            <label class="text-xs uppercase tracking-wide text-slate-500">
+              Combo B
+              <select v-model="battle.comboBId" class="input mt-1">
+                <option value="">Selecione um combo</option>
+                <option v-for="combo in combosStore.items" :key="`b-${combo.id}`" :value="combo.id">
+                  {{ combo.name }}
+                </option>
+              </select>
+            </label>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <label class="text-xs uppercase tracking-wide text-slate-500">
+                Vencedor
+                <select v-model="battle.winner" class="input mt-1">
+                  <option value="COMBO_A">Combo A</option>
+                  <option value="COMBO_B">Combo B</option>
+                  <option value="DRAW">Empate</option>
+                </select>
+              </label>
+              <label class="text-xs uppercase tracking-wide text-slate-500">
+                Tipo de vitória
+                <select v-model="battle.victoryType" class="input mt-1">
+                  <option value="">—</option>
+                  <option v-for="kind in victoryKinds" :key="`multi-${kind}`" :value="kind">
+                    {{ kind }}
+                  </option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="text-xs uppercase tracking-wide text-slate-500">
+              Data
+              <input type="date" v-model="battle.occurredAt" class="input mt-1" />
+            </label>
+            <label class="text-xs uppercase tracking-wide text-slate-500">
+              Arena
+              <select v-model="battle.arenaId" class="input mt-1">
+                <option value="">Mesma da batalha principal</option>
+                <option v-for="arena in arenasStore.items" :key="arena.id" :value="arena.id">
+                  {{ arena.name }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <label class="text-xs uppercase tracking-wide text-slate-500">
+            Notas
+            <textarea v-model="battle.notes" class="input mt-1" rows="2"></textarea>
+          </label>
+        </article>
+      </div>
+
+      <div class="flex flex-wrap gap-3 pt-2">
+        <button
+          type="button"
+          class="px-4 py-2 rounded-xl border border-dashed border-slate-700 text-sm text-slate-300"
+          :disabled="multiBattles.length >= MAX_MULTI_BATTLES"
+          @click="addMultiBattle"
+        >
+          + Adicionar batalha
+        </button>
+        <button
+          type="button"
+          class="px-5 py-2 rounded-xl bg-emerald-500/80 hover:bg-emerald-500 text-sm font-semibold text-white"
+          :disabled="multiSaving"
+          @click="saveMultiBattles"
+        >
+          {{ multiSaving ? 'Salvando...' : 'Registrar batalhas simultâneas' }}
+        </button>
+      </div>
+    </section>
   </div>
 
   <div v-else class="flex items-center justify-center py-20 text-slate-400">
@@ -349,21 +514,50 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 
 import { useBattlesStore } from '../stores/battles';
 import { useCombosStore } from '../stores/combos';
 import { useArenasStore } from '../stores/arenas';
 import { usePartsStore } from '../stores/parts';
+import { useDecksStore } from '../stores/decks';
 
 const battlesStore = useBattlesStore();
 const combosStore = useCombosStore();
 const arenasStore = useArenasStore();
 const partsStore = usePartsStore();
+const decksStore = useDecksStore();
 
 const route = useRoute();
 const router = useRouter();
+
+const MAX_TURNS = 10;
+const MAX_MULTI_BATTLES = 3;
+
+const victoryWeights = {
+  overfinish: 2,
+  burstfinish: 2,
+  spinfinish: 1,
+  extremefinish: 3,
+  knockout: 2,
+  equalizacao: 1,
+};
+
+function normalizeVictoryType(value) {
+  if (!value) return '';
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]/g, '');
+}
+
+function pointsForVictory(value) {
+  const key = normalizeVictoryType(value);
+  if (!key) return 1;
+  return victoryWeights[key] ?? 1;
+}
 
 const loading = ref(true);
 const saving = ref(false);
@@ -379,11 +573,11 @@ const form = reactive({
   notes: '',
 });
 
-const turns = reactive([
-  { id: 1, winner: '', victoryType: '', notes: '' },
-  { id: 2, winner: '', victoryType: '', notes: '' },
-  { id: 3, winner: '', victoryType: '', notes: '' },
-]);
+function createTurn(id = Date.now()) {
+  return { id, winner: '', victoryType: '', notes: '' };
+}
+
+const turns = reactive([createTurn()]);
 
 function createBuilderState() {
   return {
@@ -403,7 +597,86 @@ const comboBuilders = reactive({
 
 const builderLoading = reactive({ A: false, B: false });
 
-const victoryKinds = ['Burst', 'Knockout', 'Spin Finish', 'Equalização', 'Over Finish'];
+const victoryKinds = ['Over Finish', 'Burst Finish', 'Extreme Finish', 'Spin Finish', 'Knockout', 'Equalização'];
+
+const deckSelections = reactive({ A: '', B: '' });
+const multiSaving = ref(false);
+
+function createMultiBattleCard(index = 1) {
+  return {
+    id: `${Date.now()}-${index}`,
+    title: `Batalha ${index}`,
+    comboAId: '',
+    comboBId: '',
+    winner: 'COMBO_A',
+    victoryType: '',
+    notes: '',
+    arenaId: '',
+    occurredAt: new Date().toISOString().slice(0, 10),
+  };
+}
+
+const multiBattles = reactive([createMultiBattleCard(1)]);
+
+function refreshMultiLabels() {
+  multiBattles.forEach((battle, idx) => {
+    battle.title = `Batalha ${idx + 1}`;
+  });
+}
+
+function addMultiBattle() {
+  if (multiBattles.length >= MAX_MULTI_BATTLES) return;
+  multiBattles.push(createMultiBattleCard(multiBattles.length + 1));
+  refreshMultiLabels();
+}
+
+function removeMultiBattle(index) {
+  if (multiBattles.length === 1) return;
+  multiBattles.splice(index, 1);
+  refreshMultiLabels();
+}
+
+function applyDeckSelection(side, deckId) {
+  if (!deckId) return;
+  const deck = decksStore.items.find((entry) => entry.id === deckId);
+  if (!deck) return;
+  const requiredBattles = Math.min(deck.slots.length, MAX_MULTI_BATTLES);
+  while (multiBattles.length < requiredBattles) {
+    addMultiBattle();
+  }
+  deck.slots.slice(0, MAX_MULTI_BATTLES).forEach((slot, index) => {
+    if (!slot || !multiBattles[index]) return;
+    if (side === 'A') {
+      multiBattles[index].comboAId = slot.comboId;
+    } else {
+      multiBattles[index].comboBId = slot.comboId;
+    }
+  });
+}
+
+watch(
+  () => deckSelections.A,
+  (value) => {
+    applyDeckSelection('A', value);
+  },
+);
+
+watch(
+  () => deckSelections.B,
+  (value) => {
+    applyDeckSelection('B', value);
+  },
+);
+
+function addTurn() {
+  if (turns.length >= MAX_TURNS) return;
+  turns.push(createTurn(Date.now() + turns.length));
+}
+
+function removeTurn(index) {
+  if (turns.length === 1) return;
+  turns.splice(index, 1);
+}
 
 const isEdit = computed(() => route.name === 'battle-edit');
 const isView = computed(() => route.name === 'battle-view');
@@ -419,8 +692,9 @@ const bitOptions = computed(() => partsStore.catalog.filter((part) => part.type 
 const scoreData = computed(() => {
   const base = { a: 0, b: 0 };
   for (const turn of turns) {
-    if (turn.winner === 'COMBO_A') base.a += 1;
-    if (turn.winner === 'COMBO_B') base.b += 1;
+    const weight = pointsForVictory(turn.victoryType);
+    if (turn.winner === 'COMBO_A') base.a += weight;
+    if (turn.winner === 'COMBO_B') base.b += weight;
   }
   return base;
 });
@@ -489,6 +763,46 @@ function winnerBadge(code, short = false) {
   return '—';
 }
 
+function multiBattleScore(battle) {
+  const weight = pointsForVictory(battle.victoryType);
+  if (battle.winner === 'COMBO_A') return `${weight}-${0}`;
+  if (battle.winner === 'COMBO_B') return `${0}-${weight}`;
+  return '0-0';
+}
+
+function multiBattleSummary(battle) {
+  const score = multiBattleScore(battle);
+  if (score === '0-0') {
+    return { score, result: 'DRAW' };
+  }
+  return { score, result: battle.winner };
+}
+
+function multiBattlePayload(battle) {
+  const summary = multiBattleSummary(battle);
+  const turn = battle.winner
+    ? [
+        {
+          winner: battle.winner,
+          victoryType: battle.victoryType || undefined,
+          notes: battle.notes?.trim() || undefined,
+        },
+      ]
+    : [];
+
+  return {
+    comboAId: battle.comboAId,
+    comboBId: battle.comboBId,
+    arenaId: battle.arenaId || form.arenaId || undefined,
+    result: summary.result,
+    score: summary.score,
+    victoryType: battle.victoryType || undefined,
+    notes: battle.notes?.trim() || undefined,
+    occurredAt: battle.occurredAt || form.occurredAt,
+    turns: turn.length ? turn : undefined,
+  };
+}
+
 function assertCombos() {
   if (!form.comboAId || !form.comboBId) {
     throw new Error('Selecione os dois combos para continuar.');
@@ -505,6 +819,15 @@ async function hydrateBattle(id) {
   form.score = battle.score ?? '';
   form.victoryType = battle.victoryType ?? '';
   form.notes = battle.notes ?? '';
+  const remoteTurns = Array.isArray(battle.turns) && battle.turns.length
+    ? battle.turns.map((turn, index) => ({
+        id: Date.now() + index,
+        winner: turn.winner ?? 'COMBO_A',
+        victoryType: turn.victoryType ?? '',
+        notes: turn.notes ?? '',
+      }))
+    : [createTurn()];
+  turns.splice(0, turns.length, ...remoteTurns);
 }
 
 async function loadInitialData() {
@@ -514,6 +837,7 @@ async function loadInitialData() {
     arenasStore.fetchArenas(),
     partsStore.fetchMetadata(),
     partsStore.fetchAllActiveParts(),
+    decksStore.fetchDecks(),
   ]);
   if (route.params.id) {
     await hydrateBattle(route.params.id);
@@ -656,6 +980,26 @@ async function saveBattle() {
     window.alert(err.message || 'Erro ao salvar batalha');
   } finally {
     saving.value = false;
+  }
+}
+
+async function saveMultiBattles() {
+  try {
+    const readyBattles = multiBattles.filter((battle) => battle.comboAId && battle.comboBId);
+    if (!readyBattles.length) {
+      throw new Error('Selecione combos para pelo menos uma batalha simultânea.');
+    }
+    multiSaving.value = true;
+    for (const battle of readyBattles) {
+      const payload = multiBattlePayload(battle);
+      await battlesStore.createBattle(payload);
+    }
+    await battlesStore.fetchBattles();
+    window.alert(`${readyBattles.length} batalha(s) foram registradas.`);
+  } catch (err) {
+    window.alert(err.message || 'Erro ao registrar batalhas simultâneas');
+  } finally {
+    multiSaving.value = false;
   }
 }
 

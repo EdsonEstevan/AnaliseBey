@@ -7,6 +7,7 @@ Aplicação full-stack para catalogar peças, montar combos, registrar batalhas 
 - **Frontend:** Vite + Vue 3 (JavaScript), Pinia, Vue Router, TailwindCSS custom, Axios.
 - **Backend:** Node.js + Express, Prisma ORM, SQLite (migrável para Postgres), Zod para validação.
 - **Infra:** Workspaces npm, rotas de backup/import JSON/CSV, conectores externos de peças (placeholder), scripts unificados para dev/build/deploy.
+- **Decks 3on3:** console para montar decks de até três combos e aplicar automaticamente nas batalhas simultâneas do compositor.
 
 ## Estrutura do repositório
 
