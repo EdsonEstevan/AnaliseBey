@@ -4,7 +4,7 @@ import { prisma } from '../../db/prisma';
 import { badRequest, notFound } from '../../utils/apiError';
 import { ensureStringArray, toJsonArray } from '../../utils/json';
 import { ComboPayload } from '../../types/dto';
-import { Archetype, ComboStatus, PartType } from '../../types/enums';
+import { Archetype, Archetypes, ComboStatus, PartType } from '../../types/enums';
 
 const comboInclude = {
   blade: true,
@@ -61,6 +61,12 @@ function extractBitInitial(name: string) {
   return match ? match[0].toUpperCase() : '';
 }
 
+function ensureArchetype(value: string): Archetype {
+  const found = Archetypes.find((entry) => entry === value);
+  if (found) return found;
+  return 'BALANCE';
+}
+
 function buildComboName(
   blade: Pick<Part, 'name'>,
   ratchet: Pick<Part, 'name'>,
@@ -78,23 +84,27 @@ function buildComboName(
 }
 
 function deriveArchetype(blade: Part, ratchet: Part, bit: Part): Archetype {
-  const tally: Record<string, number> = {};
-  [blade, ratchet, bit].forEach((part) => {
-    tally[part.archetype] = (tally[part.archetype] ?? 0) + 1;
+  const bladeArchetype = ensureArchetype(blade.archetype);
+  const ratchetArchetype = ensureArchetype(ratchet.archetype);
+  const bitArchetype = ensureArchetype(bit.archetype);
+
+  const tally = new Map<Archetype, number>();
+  [bladeArchetype, ratchetArchetype, bitArchetype].forEach((arch) => {
+    tally.set(arch, (tally.get(arch) ?? 0) + 1);
   });
 
-  const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+  const sorted = [...tally.entries()].sort((a, b) => b[1] - a[1]);
   const topCount = sorted[0]?.[1] ?? 0;
-  const candidates = sorted.filter(([, count]) => count === topCount).map(([key]) => key as Archetype);
+  const candidates = sorted.filter(([, count]) => count === topCount).map(([key]) => key);
 
   if (candidates.length === 1) {
     return candidates[0];
   }
 
   // Tie-breaker preference: blade -> ratchet -> bit
-  if (candidates.includes(blade.archetype)) return blade.archetype;
-  if (candidates.includes(ratchet.archetype)) return ratchet.archetype;
-  return bit.archetype;
+  if (candidates.includes(bladeArchetype)) return bladeArchetype;
+  if (candidates.includes(ratchetArchetype)) return ratchetArchetype;
+  return bitArchetype;
 }
 
 function deriveSubArchetype(blade: Part, ratchet: Part, bit: Part) {
