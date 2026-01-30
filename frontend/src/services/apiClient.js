@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+const envBaseUrl = import.meta?.env?.VITE_API_URL;
+const normalizedBaseUrl = envBaseUrl
+  ? envBaseUrl.replace(/\/$/, '')
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: normalizedBaseUrl,
 });
 
 api.interceptors.response.use(
