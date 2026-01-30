@@ -12,3 +12,78 @@ body {
   color: #e2e8f0;
   min-height: 100vh;
 }
+
+.app-shell {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(145deg, rgba(2, 6, 23, 0.95), rgba(15, 23, 42, 0.98));
+}
+
+.app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.08), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.08), transparent 40%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.app-sidebar {
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.55);
+}
+
+.app-header {
+  backdrop-filter: blur(12px);
+  background: linear-gradient(120deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.85));
+}
+
+.page-shell {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.pt-safe {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 0.95rem;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page-shell {
+    padding: 1.25rem 1rem 2rem;
+    gap: 1.25rem;
+  }
+}
+
+::selection {
+  background: rgba(59, 130, 246, 0.35);
+  color: #f8fafc;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+}
