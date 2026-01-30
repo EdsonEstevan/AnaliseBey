@@ -152,16 +152,105 @@
         </div>
       </form>
     </section>
+
+    <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-5">
+      <header class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.35em] text-slate-500">Montagem rápida</p>
+          <h3 class="text-2xl font-semibold">Crie combos direto deste painel</h3>
+          <p class="text-sm text-slate-400">
+            Após cadastrar as peças, selecione Blade, Ratchet e Bit para salvar o combo sem sair da tela.
+          </p>
+        </div>
+        <div class="text-xs text-slate-500 max-w-xs">
+          Use esta ferramenta para registrar rapidamente os 3 Beys que vão compor decks 3on3 ou combos de teste.
+        </div>
+      </header>
+
+      <div class="grid gap-4 lg:grid-cols-3">
+        <label class="text-sm">
+          <span class="text-slate-400">Blade</span>
+          <select v-model="comboForm.bladeId" class="mt-1 input">
+            <option value="">Selecione um Blade</option>
+            <option v-for="blade in bladeOptions" :key="blade.id" :value="blade.id">
+              {{ blade.name }}
+            </option>
+          </select>
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-400">Ratchet</span>
+          <select v-model="comboForm.ratchetId" class="mt-1 input">
+            <option value="">Selecione um Ratchet</option>
+            <option v-for="ratchet in ratchetOptions" :key="ratchet.id" :value="ratchet.id">
+              {{ ratchet.name }}
+            </option>
+          </select>
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-400">Bit</span>
+          <select v-model="comboForm.bitId" class="mt-1 input">
+            <option value="">Selecione um Bit</option>
+            <option v-for="bit in bitOptions" :key="bit.id" :value="bit.id">
+              {{ bit.name }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <label class="text-sm">
+          <span class="text-slate-400">Tags do combo (vírgula)</span>
+          <input v-model="comboForm.tags" class="mt-1 input" placeholder="aggressive, bx" />
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-400">Notas</span>
+          <textarea v-model="comboForm.notes" rows="2" class="mt-1 input" placeholder="Detalhes táticos"></textarea>
+        </label>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <article class="border border-slate-800 rounded-2xl bg-slate-950/40 p-4 space-y-2">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Prévia automática</p>
+          <p class="text-2xl font-semibold text-white">{{ comboPreviewName || 'Selecione as peças' }}</p>
+          <p class="text-sm text-slate-400">
+            Tipagem sugerida:
+            <span class="text-slate-100 font-semibold">{{ comboPreviewArchetype || '—' }}</span>
+          </p>
+          <p class="text-xs text-slate-500">O nome combina Blade + código do Ratchet + inicial do Bit.</p>
+        </article>
+        <article class="border border-dashed border-slate-800 rounded-2xl p-4 text-sm text-slate-400">
+          <p>
+            Sempre que você cadastrar uma nova peça, ela já aparece aqui pronta para ser usada no combo. Assim fica
+            fácil manter o fluxo de cadastro seguindo Blade → Ratchet → Bit → Combo.
+          </p>
+        </article>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <button
+          type="button"
+          class="bg-primary text-white px-5 py-2 rounded-xl font-semibold disabled:opacity-60"
+          :disabled="comboBuilderLoading"
+          @click="createComboFromParts"
+        >
+          {{ comboBuilderLoading ? 'Salvando combo...' : 'Salvar combo agora' }}
+        </button>
+        <button type="button" class="text-sm text-slate-400" @click="resetComboForm">Limpar campos</button>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue';
+import { computed, reactive, ref, onMounted } from 'vue';
 
 import { usePartsStore } from '../stores/parts';
+import { useCombosStore } from '../stores/combos';
 import { uploadImage } from '../services/uploadService';
 
 const partsStore = usePartsStore();
+const combosStore = useCombosStore();
+
 const editing = ref(null);
 const uploadingImage = ref(false);
 const fileInput = ref(null);
@@ -176,10 +265,131 @@ const form = reactive({
   imageUrl: '',
 });
 
+const comboForm = reactive({
+  bladeId: '',
+  ratchetId: '',
+  bitId: '',
+  tags: '',
+  notes: '',
+});
+const comboBuilderLoading = ref(false);
+
 onMounted(async () => {
   await partsStore.fetchMetadata();
   await partsStore.fetchParts();
+  await partsStore.fetchAllActiveParts();
+  await combosStore.fetchCombos();
 });
+
+const bladeOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'BLADE' && !part.archived));
+const ratchetOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'RATCHET' && !part.archived));
+const bitOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'BIT' && !part.archived));
+
+function normalize(text) {
+  return text
+    ? text
+        .normalize('NFD')
+        .replace(/[^A-Za-z0-9]/g, '')
+        .replace(/[\u0300-\u036f]/g, '')
+    : '';
+}
+
+function extractRatchetCode(name) {
+  const digits = name.replace(/\D/g, '');
+  if (digits) return digits;
+  return normalize(name || '').toUpperCase();
+}
+
+function extractBitInitial(name) {
+  const cleaned = normalize(name || '');
+  const match = cleaned.match(/[A-Za-z\d]/);
+  return match ? match[0].toUpperCase() : '';
+}
+
+function findPart(partId) {
+  return partsStore.catalog.find((part) => part.id === partId);
+}
+
+function deriveArchetypeFromParts(blade, ratchet, bit) {
+  if (!blade || !ratchet || !bit) return '';
+  const tally = {};
+  [blade, ratchet, bit].forEach((piece) => {
+    tally[piece.archetype] = (tally[piece.archetype] ?? 0) + 1;
+  });
+  const entries = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+  const highest = entries[0]?.[1] ?? 0;
+  const candidates = entries.filter(([, count]) => count === highest).map(([arch]) => arch);
+  if (candidates.length === 1) return candidates[0];
+  if (candidates.includes(blade.archetype)) return blade.archetype;
+  if (candidates.includes(ratchet.archetype)) return ratchet.archetype;
+  return bit.archetype;
+}
+
+const comboPreviewName = computed(() => {
+  const blade = findPart(comboForm.bladeId);
+  const ratchet = findPart(comboForm.ratchetId);
+  const bit = findPart(comboForm.bitId);
+  if (!blade || !ratchet || !bit) return '';
+  const bladeLabel = blade.name?.trim();
+  if (!bladeLabel) return '';
+  const ratchetCode = extractRatchetCode(ratchet.name || '');
+  const bitInitial = extractBitInitial(bit.name || '');
+  if (!ratchetCode || !bitInitial) return '';
+  return `${bladeLabel}${ratchetCode}${bitInitial}`;
+});
+
+const comboPreviewArchetype = computed(() => {
+  const blade = findPart(comboForm.bladeId);
+  const ratchet = findPart(comboForm.ratchetId);
+  const bit = findPart(comboForm.bitId);
+  if (!blade || !ratchet || !bit) return '';
+  return deriveArchetypeFromParts(blade, ratchet, bit);
+});
+
+function builderTagsFromInput() {
+  return comboForm.tags
+    ? comboForm.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+    : [];
+}
+
+function maybeAssignPartToBuilder(part) {
+  if (!part) return;
+  if (part.type === 'BLADE') comboForm.bladeId = part.id;
+  if (part.type === 'RATCHET') comboForm.ratchetId = part.id;
+  if (part.type === 'BIT') comboForm.bitId = part.id;
+}
+
+function resetComboForm() {
+  comboForm.bladeId = '';
+  comboForm.ratchetId = '';
+  comboForm.bitId = '';
+  comboForm.tags = '';
+  comboForm.notes = '';
+}
+
+async function createComboFromParts() {
+  try {
+    if (!comboForm.bladeId || !comboForm.ratchetId || !comboForm.bitId) {
+      throw new Error('Selecione Blade, Ratchet e Bit para montar o combo.');
+    }
+    comboBuilderLoading.value = true;
+    const payload = {
+      bladeId: comboForm.bladeId,
+      ratchetId: comboForm.ratchetId,
+      bitId: comboForm.bitId,
+      tags: builderTagsFromInput(),
+      notes: comboForm.notes?.trim() || undefined,
+    };
+    const combo = await combosStore.createCombo(payload);
+    const label = combo?.name || comboPreviewName.value || 'Combo criado';
+    window.alert(`${label} salvo com sucesso!`);
+    resetComboForm();
+  } catch (err) {
+    window.alert(err.message || 'Erro ao salvar combo.');
+  } finally {
+    comboBuilderLoading.value = false;
+  }
+}
 
 async function submit() {
   const payload = {
@@ -196,7 +406,8 @@ async function submit() {
   if (editing.value) {
     await partsStore.updatePart(editing.value, payload);
   } else {
-    await partsStore.createPart(payload);
+    const created = await partsStore.createPart(payload);
+    maybeAssignPartToBuilder(created);
   }
   resetForm();
 }

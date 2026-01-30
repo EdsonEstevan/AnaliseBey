@@ -33,14 +33,16 @@ export const usePartsStore = defineStore('parts', {
       }
     },
     async createPart(payload) {
-      await api.post('/parts', payload);
+      const { data } = await api.post('/parts', payload);
       await this.fetchParts();
       await this.fetchAllActiveParts();
+      return data;
     },
     async updatePart(id, payload) {
-      await api.put(`/parts/${id}`, payload);
+      const { data } = await api.put(`/parts/${id}`, payload);
       await this.fetchParts();
       await this.fetchAllActiveParts();
+      return data;
     },
     async toggleArchive(id, archived) {
       await api.patch(`/parts/${id}/archive`, { archived });

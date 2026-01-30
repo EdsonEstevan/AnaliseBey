@@ -75,6 +75,10 @@
         >
           Gerenciar decks
         </RouterLink>
+        <p class="text-xs text-slate-500 w-full">
+          Não quer escolher um deck agora? Preencha as 3 batalhas simultâneas e nós geramos e vinculamos o deck
+          automaticamente para cada lado.
+        </p>
       </div>
     </section>
 
@@ -668,6 +672,44 @@ watch(
   },
 );
 
+function combosForSide(side, battles) {
+  return battles.map((battle) => (side === 'A' ? battle.comboAId : battle.comboBId)).filter(Boolean);
+}
+
+function normalizeDeckKey(ids) {
+  return ids.slice().sort().join('|');
+}
+
+function findDeckByCombos(side, comboIds) {
+  const targetKey = normalizeDeckKey(comboIds);
+  return decksStore.items.find((deck) => {
+    if (deck.slots.length !== comboIds.length) return false;
+    if (side && deck.side && deck.side !== side) return false;
+    const deckKey = normalizeDeckKey(deck.slots.map((slot) => slot.comboId));
+    return deckKey === targetKey;
+  });
+}
+
+async function maybeCreateDeckFromBattles(side, battles) {
+  if (deckSelections[side]) return null;
+  if (battles.length !== MAX_MULTI_BATTLES) return null;
+  const combos = combosForSide(side, battles);
+  const uniqueCombos = Array.from(new Set(combos));
+  if (combos.length !== MAX_MULTI_BATTLES) return null;
+  if (uniqueCombos.length !== MAX_MULTI_BATTLES) return null;
+  const existing = findDeckByCombos(side, combos);
+  if (existing) return existing;
+  const sideLabel = side === 'A' ? 'Alpha' : 'Bravo';
+  const dateLabel = new Date().toLocaleDateString('pt-BR');
+  const deck = await decksStore.createDeck({
+    name: `Deck ${sideLabel} • ${dateLabel}`,
+    side,
+    notes: 'Gerado automaticamente pelo console simultâneo',
+    comboIds: combos,
+  });
+  return deck;
+}
+
 function addTurn() {
   if (turns.length >= MAX_TURNS) return;
   turns.push(createTurn(Date.now() + turns.length));
@@ -990,12 +1032,20 @@ async function saveMultiBattles() {
       throw new Error('Selecione combos para pelo menos uma batalha simultânea.');
     }
     multiSaving.value = true;
+    const autoDecks = [];
+    if (readyBattles.length === MAX_MULTI_BATTLES) {
+      const deckA = await maybeCreateDeckFromBattles('A', readyBattles);
+      const deckB = await maybeCreateDeckFromBattles('B', readyBattles);
+      if (deckA) autoDecks.push(deckA.name);
+      if (deckB) autoDecks.push(deckB.name);
+    }
     for (const battle of readyBattles) {
       const payload = multiBattlePayload(battle);
       await battlesStore.createBattle(payload);
     }
     await battlesStore.fetchBattles();
-    window.alert(`${readyBattles.length} batalha(s) foram registradas.`);
+    const deckMessage = autoDecks.length ? ` Decks gerados: ${autoDecks.join(', ')}.` : '';
+    window.alert(`${readyBattles.length} batalha(s) foram registradas.${deckMessage}`);
   } catch (err) {
     window.alert(err.message || 'Erro ao registrar batalhas simultâneas');
   } finally {
