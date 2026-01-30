@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Part {
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+  variant   String?
+  weight    Float?
+  archetype String
+  subArchetype String?
+  tags      String?  @default("[]")
+  notes     String?
+  imageUrl  String?
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  combosAsBlade   Combo[] @relation("Blade")
+  combosAsRatchet Combo[] @relation("Ratchet")
+  combosAsBit     Combo[] @relation("Bit")
+}
+
+model Arena {
+  id        String   @id @default(cuid())
+  name      String
+  model     String?
+  tags      String?  @default("[]")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  battles Battle[]
+}
+
+model Combo {
+  id        String   @id @default(cuid())
+  name      String
+  bladeId   String
+  ratchetId String
+  bitId     String
+  archetype String
+  subArchetype String?
+  tags      String?  @default("[]")
+  notes     String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status    String   @default("ACTIVE")
+
+  blade   Part @relation("Blade", fields: [bladeId], references: [id])
+  ratchet Part @relation("Ratchet", fields: [ratchetId], references: [id])
+  bit     Part @relation("Bit", fields: [bitId], references: [id])
+
+  battlesAsComboA Battle[] @relation("ComboA")
+  battlesAsComboB Battle[] @relation("ComboB")
+}
+
+model Battle {
+  id          String   @id @default(cuid())
+  comboAId    String
+  comboBId    String
+  result      String
+  score       String?
+  victoryType String?
+  arenaId     String?
+  notes       String?
+  occurredAt  DateTime? @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  comboA Combo @relation("ComboA", fields: [comboAId], references: [id])
+  comboB Combo @relation("ComboB", fields: [comboBId], references: [id])
+  arena  Arena? @relation(fields: [arenaId], references: [id])
+}
