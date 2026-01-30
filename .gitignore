@@ -5,3 +5,6 @@ package-lock.json
 backend/prisma/dev.db
 dist
 .vscode
+
+# Local Netlify folder
+.netlify

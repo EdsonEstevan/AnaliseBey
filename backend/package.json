@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc -p tsconfig.json",
+    "prestart": "node scripts/prestart.js",
     "start": "node dist/src/server.js",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "prisma:generate": "prisma generate",
@@ -24,6 +25,7 @@
     "helmet": "^7.1.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "prisma": "^5.9.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -36,7 +38,6 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-simple-import-sort": "^10.0.0",
-    "prisma": "^5.9.1",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
