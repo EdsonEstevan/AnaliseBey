@@ -4,7 +4,7 @@
       <div>
         <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Fluxo de batalha</p>
         <h1 class="text-3xl font-semibold">{{ pageTitle }}</h1>
-        <p class="text-sm text-slate-400">Configure os combos, registre cada turno e mantenha o histórico rico em detalhes.</p>
+        <p class="text-sm text-slate-400">Configure os combos, registre cada round e mantenha o histórico rico em detalhes.</p>
       </div>
       <div class="flex flex-wrap gap-3">
         <RouterLink to="/battles" class="px-4 py-2 rounded-xl border border-slate-700 text-sm text-slate-300">Voltar</RouterLink>
@@ -85,9 +85,9 @@
     <div class="grid xl:grid-cols-[2fr,1fr] gap-6">
       <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-6">
         <header>
-          <p class="text-xs uppercase tracking-wide text-slate-500">Turnos</p>
-          <h3 class="text-xl font-semibold">Sequência da batalha</h3>
-          <p class="text-sm text-slate-500">Defina o vencedor e o tipo de vitória de cada turno para gerar o placar automaticamente.</p>
+          <p class="text-xs uppercase tracking-wide text-slate-500">Rounds</p>
+          <h3 class="text-xl font-semibold">Sequência de rounds</h3>
+          <p class="text-sm text-slate-500">Defina o vencedor e o tipo de vitória de cada round para gerar o placar automaticamente.</p>
         </header>
         <div class="grid gap-4 md:grid-cols-2">
           <article
@@ -97,7 +97,7 @@
           >
             <div class="flex items-center justify-between gap-3">
               <div>
-                <p class="text-sm text-slate-400">Turno {{ index + 1 }}</p>
+                <p class="text-sm text-slate-400">Round {{ index + 1 }}</p>
                 <span class="text-xs text-slate-500">{{ winnerBadge(turn.winner) }}</span>
               </div>
               <button
@@ -110,7 +110,7 @@
               </button>
             </div>
             <label class="text-xs uppercase tracking-wide text-slate-500">
-              Vencedor
+              Vencedor do round
               <select v-model="turn.winner" class="input mt-1" :disabled="isView">
                 <option value="">—</option>
                 <option value="COMBO_A">Combo A</option>
@@ -119,14 +119,14 @@
               </select>
             </label>
             <label class="text-xs uppercase tracking-wide text-slate-500">
-              Tipo de vitória
+              Tipo de vitória do round
               <select v-model="turn.victoryType" class="input mt-1" :disabled="isView">
                 <option value="">—</option>
                 <option v-for="kind in victoryKinds" :key="kind" :value="kind">{{ kind }}</option>
               </select>
             </label>
             <label class="text-xs uppercase tracking-wide text-slate-500">
-              Observações
+              Observações do round
               <textarea v-model="turn.notes" class="input mt-1" rows="2" :disabled="isView"></textarea>
             </label>
           </article>
@@ -137,7 +137,7 @@
           :disabled="isView || turns.length >= MAX_TURNS"
           @click="addTurn"
         >
-          + Adicionar turno (máx. {{ MAX_TURNS }})
+          + Adicionar round (máx. {{ MAX_TURNS }})
         </button>
         <div class="grid gap-4 lg:grid-cols-2">
           <label class="text-sm">
@@ -773,7 +773,7 @@ const turnsDigest = computed(() =>
       const winner = winnerBadge(turn.winner, true);
       const detail = turn.victoryType ? ` - ${turn.victoryType}` : '';
       const note = turn.notes ? ` (${turn.notes})` : '';
-      return `T${idx + 1}: ${winner}${detail}${note}`;
+      return `Round ${idx + 1}: ${winner}${detail}${note}`;
     })
     .join(' | ')
 );

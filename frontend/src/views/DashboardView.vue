@@ -28,7 +28,7 @@
           <div class="flex items-center justify-between gap-2">
             <div>
               <p class="text-sm font-semibold truncate">{{ tab.name }}</p>
-              <p class="text-[11px] text-slate-400">{{ tab.total }} batalhas · {{ tab.winrate }}</p>
+              <p class="text-[11px] text-slate-400">{{ tab.total }} rodadas · {{ tab.winrate }}</p>
             </div>
             <span
               class="text-xs text-slate-500 hover:text-rose-400 cursor-pointer px-2"
@@ -56,7 +56,7 @@
             >
               <option value="" disabled>Selecione um combo com dados</option>
               <option v-for="option in availableTabOptions" :key="option.id" :value="option.id">
-                {{ option.name }} · {{ option.total }} batalhas
+                {{ option.name }} · {{ option.total }} rodadas
               </option>
             </select>
             <button
@@ -73,7 +73,7 @@
           </div>
         </template>
         <p v-else class="text-xs text-slate-500">
-          Nenhum combo com batalhas registradas disponível para adicionar no momento.
+          Nenhum combo com rodadas registradas disponível para adicionar no momento.
         </p>
       </div>
     </section>
@@ -146,7 +146,7 @@
           <header class="flex items-center justify-between mb-4">
             <div>
               <p class="text-xs uppercase tracking-wide text-slate-400">Ranking rápido</p>
-              <h3 class="text-xl font-semibold">Top combos por winrate (>=3 batalhas)</h3>
+              <h3 class="text-xl font-semibold">Top combos por winrate (>=3 rodadas)</h3>
             </div>
             <span class="text-xs text-slate-500">Baseado no filtro atual</span>
           </header>
@@ -154,7 +154,7 @@
             <thead class="text-left text-slate-400 uppercase text-xs">
               <tr>
                 <th class="py-2">Combo</th>
-                <th class="py-2">Partidas</th>
+                <th class="py-2">Rodadas</th>
                 <th class="py-2">Vitórias</th>
                 <th class="py-2">Winrate</th>
               </tr>
@@ -172,7 +172,7 @@
               </tr>
               <tr v-if="topCombos.length === 0">
                 <td colspan="4" class="py-4 text-center text-slate-500">
-                  Cadastre batalhas ou ajuste os filtros.
+                  Registre rodadas ou ajuste os filtros.
                 </td>
               </tr>
             </tbody>
@@ -195,7 +195,7 @@
               </div>
             </li>
             <li v-if="victoryDistribution.length === 0" class="text-center text-slate-500 text-sm">
-              Sem batalhas no filtro atual.
+              Sem rodadas no filtro atual.
             </li>
           </ul>
         </section>
@@ -211,7 +211,7 @@
             <thead class="text-left text-slate-400 uppercase text-xs">
               <tr>
                 <th class="py-2">Arquétipo</th>
-                <th class="py-2">Partidas</th>
+                <th class="py-2">Rodadas</th>
                 <th class="py-2">Winrate</th>
                 <th class="py-2">Empates</th>
               </tr>
@@ -224,7 +224,7 @@
                 <td>{{ item.drawRate }}%</td>
               </tr>
               <tr v-if="archetypePerformance.length === 0">
-                <td colspan="4" class="py-4 text-center text-slate-500">Nenhuma batalha para calcular.</td>
+                <td colspan="4" class="py-4 text-center text-slate-500">Nenhuma rodada para calcular.</td>
               </tr>
             </tbody>
           </table>
@@ -244,7 +244,7 @@
               <div class="flex items-center justify-between text-sm">
                 <div>
                   <p class="font-semibold">{{ arena.name }}</p>
-                  <p class="text-xs text-slate-500">{{ arena.total }} batalhas</p>
+                  <p class="text-xs text-slate-500">{{ arena.total }} rodadas</p>
                 </div>
                 <div class="text-right">
                   <p class="text-lg font-semibold">{{ arena.decisiveRate }}%</p>
@@ -254,7 +254,7 @@
               <div class="text-xs text-slate-500 mt-2">Empates: {{ arena.draws }}</div>
             </li>
             <li v-if="arenaPerformance.length === 0" class="text-center text-slate-500 text-sm">
-              Cadastre batalhas com arena para popular esta lista.
+              Registre rodadas com arena para popular esta lista.
             </li>
           </ul>
         </section>
@@ -264,33 +264,33 @@
         <header class="flex items-center justify-between mb-4">
           <div>
             <p class="text-xs uppercase tracking-wide text-slate-400">Timeline</p>
-            <h3 class="text-xl font-semibold">Últimas batalhas filtradas</h3>
+            <h3 class="text-xl font-semibold">Últimas rodadas filtradas</h3>
           </div>
-          <span class="text-xs text-slate-500">{{ latestBattles.length }} registros</span>
+          <span class="text-xs text-slate-500">{{ latestRounds.length }} registros</span>
         </header>
         <ul class="space-y-4 max-h-[440px] overflow-y-auto pr-2">
           <li
-            v-for="battle in latestBattles"
-            :key="battle.id"
+            v-for="round in latestRounds"
+            :key="`${round.battleId}-${round.index ?? 0}`"
             class="bg-slate-900/70 p-4 rounded-xl border border-slate-800"
           >
             <div class="flex items-center justify-between">
               <p class="text-sm font-semibold">
-                {{ battle.comboA.name }}
+                {{ round.comboA?.name || 'Combo A' }}
                 <span class="text-slate-500">vs</span>
-                {{ battle.comboB.name }}
+                {{ round.comboB?.name || 'Combo B' }}
               </p>
-              <span :class="['text-xs font-semibold', resultColor(battle.result)]">
-                {{ labels[battle.result] ?? battle.result }}
+              <span :class="['text-xs font-semibold', resultColor(round.winner)]">
+                {{ labels[round.winner] ?? round.winner }}
               </span>
             </div>
             <p class="text-xs text-slate-500 mt-1">
-              {{ battle.occurredAt ? formatDate(battle.occurredAt) : 'Data não informada' }} ·
-              {{ battle.arena?.name || 'Arena livre' }} · {{ battle.score || 'placar não informado' }}
+              {{ round.occurredAtTs ? formatDate(round.occurredAtTs) : 'Data não informada' }} ·
+              {{ round.arena?.name || 'Arena livre' }} · {{ round.victoryType || 'Tipo não informado' }}
             </p>
           </li>
-          <li v-if="latestBattles.length === 0" class="text-center text-slate-500 text-sm">
-            Ajuste filtros ou cadastre batalhas.
+          <li v-if="latestRounds.length === 0" class="text-center text-slate-500 text-sm">
+            Ajuste filtros ou registre rodadas.
           </li>
         </ul>
       </section>
@@ -319,7 +319,7 @@
           </div>
           <div class="grid grid-cols-2 gap-4 text-center min-w-[220px]">
             <div>
-              <p class="text-xs uppercase tracking-wide text-slate-400">Partidas</p>
+              <p class="text-xs uppercase tracking-wide text-slate-400">Rodadas</p>
               <p class="text-2xl font-semibold">{{ comboFocusStats?.total || 0 }}</p>
             </div>
             <div>
@@ -343,8 +343,8 @@
           <li><span class="text-slate-500">Ratchet:</span> {{ activeCombo?.ratchet?.name || '—' }}</li>
           <li><span class="text-slate-500">Bit:</span> {{ activeCombo?.bit?.name || '—' }}</li>
         </ul>
-        <p v-if="!comboFocusBattles.length" class="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-xl px-4 py-2">
-          Nenhuma batalha do combo atual corresponde aos filtros selecionados. Ajuste o período ou resultado para liberar os gráficos.
+        <p v-if="!comboFocusRounds.length" class="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-xl px-4 py-2">
+          Nenhuma rodada do combo atual corresponde aos filtros selecionados. Ajuste o período ou resultado para liberar os gráficos.
         </p>
       </section>
 
@@ -374,7 +374,7 @@
                   <th>Tipo</th>
                   <th>Arquétipo</th>
                   <th>Combos</th>
-                  <th>Partidas</th>
+                  <th>Rodadas</th>
                   <th>Winrate</th>
                 </tr>
               </thead>
@@ -414,7 +414,7 @@
               <div class="flex items-center justify-between">
                 <div>
                   <p class="font-semibold">{{ pair.name }}</p>
-                  <p class="text-xs text-slate-500">{{ pair.combos }} combos · {{ pair.total }} partidas</p>
+                  <p class="text-xs text-slate-500">{{ pair.combos }} combos · {{ pair.total }} rodadas</p>
                 </div>
                 <span class="text-lg font-semibold text-emerald-300">{{ pair.winrate }}%</span>
               </div>
@@ -437,7 +437,7 @@
               <thead class="text-left text-slate-400 uppercase text-xs">
                 <tr>
                   <th class="py-2">Combo</th>
-                  <th>Partidas</th>
+                  <th>Rodadas</th>
                   <th>Vitórias</th>
                   <th>Derrotas</th>
                   <th>Empates</th>
@@ -475,7 +475,7 @@
               <div class="flex items-center justify-between text-sm">
                 <div>
                   <p class="font-semibold">{{ arena.name }}</p>
-                  <p class="text-xs text-slate-500">{{ arena.total }} partidas</p>
+                  <p class="text-xs text-slate-500">{{ arena.total }} rodadas</p>
                 </div>
                 <div class="text-right">
                   <p class="text-lg font-semibold">{{ arena.winrate }}%</p>
@@ -513,34 +513,33 @@
         <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
           <header class="flex items-center justify-between mb-4">
             <div>
-              <p class="text-xs uppercase tracking-wide text-slate-400">Batalhas do combo</p>
+              <p class="text-xs uppercase tracking-wide text-slate-400">Rodadas do combo</p>
               <h3 class="text-xl font-semibold">Histórico recente</h3>
             </div>
-            <span class="text-xs text-slate-500">{{ comboRecentBattles.length }} registros</span>
+            <span class="text-xs text-slate-500">{{ comboRecentRounds.length }} registros</span>
           </header>
           <ul class="space-y-4 max-h-[360px] overflow-y-auto pr-2">
             <li
-              v-for="battle in comboRecentBattles"
-              :key="battle.id"
+              v-for="round in comboRecentRounds"
+              :key="`${round.battleId}-${round.index ?? 0}`"
               class="border border-slate-800 rounded-xl p-4 bg-slate-900/70"
             >
               <div class="flex items-center justify-between">
                 <p class="text-sm font-semibold">
-                  {{ battle.comboA.name }}
+                  {{ round.comboA?.name || 'Combo A' }}
                   <span class="text-slate-500">vs</span>
-                  {{ battle.comboB.name }}
+                  {{ round.comboB?.name || 'Combo B' }}
                 </p>
-                <span class="text-xs font-semibold" :class="resultColor(battle.result)">
-                  {{ labels[battle.result] ?? battle.result }}
+                <span class="text-xs font-semibold" :class="resultColor(round.winner)">
+                  {{ labels[round.winner] ?? round.winner }}
                 </span>
               </div>
               <p class="text-xs text-slate-500 mt-1">
-                {{ battle.occurredAt ? formatDate(battle.occurredAt) : 'Data não informada' }} ·
-                {{ battle.arena?.name || 'Arena livre' }} · {{ battle.score || 'placar não informado' }} ·
-                {{ battle.victoryType || 'Tipo não registrado' }}
+                {{ round.occurredAtTs ? formatDate(round.occurredAtTs) : 'Data não informada' }} ·
+                {{ round.arena?.name || 'Arena livre' }} · {{ round.victoryType || 'Tipo não registrado' }}
               </p>
             </li>
-            <li v-if="!comboRecentBattles.length" class="text-center text-slate-500 text-sm">
+            <li v-if="!comboRecentRounds.length" class="text-center text-slate-500 text-sm">
               Nenhum registro recente para este combo.
             </li>
           </ul>
@@ -676,8 +675,8 @@ const combosInFilter = computed(() => {
 
 const uniqueArenaCount = computed(() => {
   const ids = new Set();
-  filteredBattles.value.forEach((battle) => {
-    if (battle.arena?.id) ids.add(battle.arena.id);
+  roundsDataset.value.forEach((round) => {
+    if (round.arena?.id) ids.add(round.arena.id);
   });
   return ids.size;
 });
@@ -825,8 +824,8 @@ const leaderWinrate = computed(() => topCombos.value[0]?.winrate ?? '0.0');
 
 const averagePerWeek = computed(() => {
   const days = filteredRangeDays.value || 7;
-  if (!filteredBattles.value.length) return '0.0';
-  return ((filteredBattles.value.length / days) * 7).toFixed(1);
+  if (!roundsDataset.value.length) return '0.0';
+  return ((roundsDataset.value.length / days) * 7).toFixed(1);
 });
 
 const victoryDistribution = computed(() => {
@@ -899,11 +898,16 @@ const arenaPerformance = computed(() => {
     .slice(0, 4);
 });
 
-const latestBattles = computed(() =>
-  [...filteredBattles.value]
+const latestRounds = computed(() =>
+  roundsDataset.value
+    .map((round) => ({
+      ...round,
+      comboA: round.comboAId ? comboIndex.value.get(round.comboAId) ?? null : null,
+      comboB: round.comboBId ? comboIndex.value.get(round.comboBId) ?? null : null,
+    }))
     .sort((a, b) => {
-      const aTime = a.occurredAt ? new Date(a.occurredAt).getTime() : 0;
-      const bTime = b.occurredAt ? new Date(b.occurredAt).getTime() : 0;
+      const aTime = a.occurredAtTs ?? 0;
+      const bTime = b.occurredAtTs ?? 0;
       return bTime - aTime;
     })
     .slice(0, 6),
@@ -913,7 +917,7 @@ const latestBattles = computed(() =>
 
 const statsCards = computed(() => [
   {
-    label: 'Batalhas no período',
+    label: 'Rodadas no período',
     value: roundsDataset.value.length,
     helper: `${filterState.range === 'all' ? 'intervalo completo' : `${filterState.range} dias`} analisados`,
   },
@@ -925,12 +929,12 @@ const statsCards = computed(() => [
   {
     label: 'Empates',
     value: resultSummary.value.draws,
-    helper: `${roundsDataset.value.length ? Math.round((resultSummary.value.draws / roundsDataset.value.length) * 100) : 0}% das batalhas`,
+    helper: `${roundsDataset.value.length ? Math.round((resultSummary.value.draws / roundsDataset.value.length) * 100) : 0}% das rodadas`,
   },
   {
     label: 'Arenas ativas',
     value: uniqueArenaCount.value,
-    helper: 'Com partidas registradas',
+    helper: 'Com rodadas registradas',
   },
   {
     label: 'Combos analisados',
@@ -938,7 +942,7 @@ const statsCards = computed(() => [
     helper: `${combosActive.value} combos ativos no total`,
   },
   {
-    label: 'Batalhas/semana',
+    label: 'Rodadas/semana',
     value: averagePerWeek.value,
     helper: `${partsTotal.value} peças disponíveis`,
   },
@@ -1056,14 +1060,6 @@ const partIndex = computed(() => {
 });
 
 const activeCombo = computed(() => comboIndex.value.get(activeTab.value) ?? null);
-
-const comboFocusBattles = computed(() => {
-  if (!activeCombo.value) return [];
-  return filteredBattles.value.filter((battle) => {
-    const ids = battleComboIds(battle);
-    return ids.a === activeCombo.value.id || ids.b === activeCombo.value.id;
-  });
-});
 
 const comboFocusRounds = computed(() => {
   if (!activeCombo.value) return [];
@@ -1229,7 +1225,7 @@ const comboSummaryCards = computed(() => {
   const topArena = comboArenaFocus.value[0];
   return [
     {
-      label: 'Batalhas analisadas',
+      label: 'Rodadas analisadas',
       value: stats.total,
       helper: `${stats.wins} vitórias · ${stats.losses} derrotas`,
     },
@@ -1241,7 +1237,7 @@ const comboSummaryCards = computed(() => {
     {
       label: 'Vitória mais comum',
       value: topVictory?.label ?? '—',
-      helper: topVictory ? `${topVictory.percent}% das batalhas` : 'Sem histórico suficiente',
+      helper: topVictory ? `${topVictory.percent}% das rodadas` : 'Sem histórico suficiente',
     },
     {
       label: 'Arena mais forte',
@@ -1251,11 +1247,16 @@ const comboSummaryCards = computed(() => {
   ];
 });
 
-const comboRecentBattles = computed(() =>
-  [...comboFocusBattles.value]
+const comboRecentRounds = computed(() =>
+  comboFocusRounds.value
+    .map((round) => ({
+      ...round,
+      comboA: round.comboAId ? comboIndex.value.get(round.comboAId) ?? null : null,
+      comboB: round.comboBId ? comboIndex.value.get(round.comboBId) ?? null : null,
+    }))
     .sort((a, b) => {
-      const aTime = a.occurredAt ? new Date(a.occurredAt).getTime() : 0;
-      const bTime = b.occurredAt ? new Date(b.occurredAt).getTime() : 0;
+      const aTime = a.occurredAtTs ?? 0;
+      const bTime = b.occurredAtTs ?? 0;
       return bTime - aTime;
     })
     .slice(0, 8),
