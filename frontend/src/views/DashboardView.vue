@@ -667,11 +667,9 @@ const partsTotal = computed(() => partsStore.items.length);
 
 const combosInFilter = computed(() => {
   const ids = new Set();
-  filteredBattles.value.forEach((battle) => {
-    const comboAId = battle.comboAId ?? battle.comboA?.id;
-    const comboBId = battle.comboBId ?? battle.comboB?.id;
-    if (comboAId) ids.add(comboAId);
-    if (comboBId) ids.add(comboBId);
+  roundsDataset.value.forEach((round) => {
+    if (round.comboAId) ids.add(round.comboAId);
+    if (round.comboBId) ids.add(round.comboBId);
   });
   return ids.size || combosActive.value;
 });
@@ -685,10 +683,10 @@ const uniqueArenaCount = computed(() => {
 });
 
 const resultSummary = computed(() => {
-  return filteredBattles.value.reduce(
-    (acc, battle) => {
-      if (battle.result === 'COMBO_A') acc.comboA += 1;
-      else if (battle.result === 'COMBO_B') acc.comboB += 1;
+  return roundsDataset.value.reduce(
+    (acc, round) => {
+      if (round.winner === 'COMBO_A') acc.comboA += 1;
+      else if (round.winner === 'COMBO_B') acc.comboB += 1;
       else acc.draws += 1;
       return acc;
     },
@@ -696,28 +694,34 @@ const resultSummary = computed(() => {
   );
 });
 
-function buildStats(sourceBattles) {
+function buildStatsFromRounds(sourceRounds) {
   const stats = new Map();
   for (const combo of combosStore.items) {
-    stats.set(combo.id, { id: combo.id, name: combo.name, wins: 0, total: 0 });
+    stats.set(combo.id, { id: combo.id, name: combo.name, wins: 0, total: 0, draws: 0 });
   }
-  for (const battle of sourceBattles) {
-    const entryA = stats.get(battle.comboAId) ?? stats.get(battle.comboA?.id);
-    const entryB = stats.get(battle.comboBId) ?? stats.get(battle.comboB?.id);
+  for (const round of sourceRounds) {
+    const entryA = stats.get(round.comboAId);
+    const entryB = stats.get(round.comboBId);
     if (entryA) entryA.total += 1;
     if (entryB) entryB.total += 1;
-    if (battle.result === 'COMBO_A' && entryA) entryA.wins += 1;
-    if (battle.result === 'COMBO_B' && entryB) entryB.wins += 1;
+    if (round.winner === 'DRAW') {
+      if (entryA) entryA.draws += 1;
+      if (entryB) entryB.draws += 1;
+      continue;
+    }
+    const winnerIsA = round.winner === 'COMBO_A';
+    if (winnerIsA && entryA) entryA.wins += 1;
+    if (!winnerIsA && entryB) entryB.wins += 1;
   }
   return [...stats.values()].map((item) => ({
     ...item,
-    winrate: item.total ? ((item.wins / item.total) * 100).toFixed(1) : '0.0',
+    winrate: item.total - item.draws > 0 ? ((item.wins / (item.total - item.draws)) * 100).toFixed(1) : '0.0',
   }));
 }
 
 const comboStatsIndex = computed(() => {
   const map = new Map();
-  buildStats(filteredBattles.value).forEach((entry) => {
+  buildStatsFromRounds(roundsDataset.value).forEach((entry) => {
     map.set(entry.id, entry);
   });
   return map;
@@ -811,7 +815,7 @@ function removeComboTab(id) {
 }
 
 const topCombos = computed(() =>
-  buildStats(filteredBattles.value)
+  buildStatsFromRounds(roundsDataset.value)
     .filter((c) => c.total >= 3)
     .sort((a, b) => Number(b.winrate) - Number(a.winrate))
     .slice(0, 5),
@@ -826,9 +830,9 @@ const averagePerWeek = computed(() => {
 });
 
 const victoryDistribution = computed(() => {
-  const total = filteredBattles.value.length;
-  const counts = filteredBattles.value.reduce((acc, battle) => {
-    const key = battle.victoryType?.trim() || (battle.result === 'DRAW' ? 'Empate' : 'Sem registro');
+  const total = roundsDataset.value.length;
+  const counts = roundsDataset.value.reduce((acc, round) => {
+    const key = round.victoryType || (round.winner === 'DRAW' ? 'Empate' : 'Sem registro');
     acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
@@ -841,20 +845,24 @@ const victoryDistribution = computed(() => {
 
 const archetypePerformance = computed(() => {
   const map = new Map();
-  filteredBattles.value.forEach((battle) => {
-    const archA = battle.comboA?.archetype ?? 'Indefinido';
-    const archB = battle.comboB?.archetype ?? 'Indefinido';
+  roundsDataset.value.forEach((round) => {
+    const comboA = comboIndex.value.get(round.comboAId);
+    const comboB = comboIndex.value.get(round.comboBId);
+    const archA = comboA?.archetype ?? 'Indefinido';
+    const archB = comboB?.archetype ?? 'Indefinido';
     if (!map.has(archA)) map.set(archA, { archetype: archA, wins: 0, total: 0, draws: 0 });
     if (!map.has(archB)) map.set(archB, { archetype: archB, wins: 0, total: 0, draws: 0 });
     const entryA = map.get(archA);
     const entryB = map.get(archB);
     if (entryA) entryA.total += 1;
     if (entryB) entryB.total += 1;
-    if (battle.result === 'COMBO_A' && entryA) entryA.wins += 1;
-    if (battle.result === 'COMBO_B' && entryB) entryB.wins += 1;
-    if (battle.result === 'DRAW') {
+    if (round.winner === 'DRAW') {
       if (entryA) entryA.draws += 1;
       if (entryB) entryB.draws += 1;
+    } else {
+      const winnerIsA = round.winner === 'COMBO_A';
+      if (winnerIsA && entryA) entryA.wins += 1;
+      if (!winnerIsA && entryB) entryB.wins += 1;
     }
   });
   return [...map.values()]
@@ -868,19 +876,19 @@ const archetypePerformance = computed(() => {
 
 const arenaPerformance = computed(() => {
   const map = new Map();
-  filteredBattles.value.forEach((battle) => {
-    if (!battle.arena?.id) return;
-    const existing = map.get(battle.arena.id) ?? {
-      id: battle.arena.id,
-      name: battle.arena.name,
+  roundsDataset.value.forEach((round) => {
+    if (!round.arena?.id) return;
+    const existing = map.get(round.arena.id) ?? {
+      id: round.arena.id,
+      name: round.arena.name,
       total: 0,
       decisive: 0,
       draws: 0,
     };
     existing.total += 1;
-    if (battle.result === 'DRAW') existing.draws += 1;
+    if (round.winner === 'DRAW') existing.draws += 1;
     else existing.decisive += 1;
-    map.set(battle.arena.id, existing);
+    map.set(round.arena.id, existing);
   });
   return [...map.values()]
     .map((entry) => ({
@@ -901,10 +909,12 @@ const latestBattles = computed(() =>
     .slice(0, 6),
 );
 
+
+
 const statsCards = computed(() => [
   {
     label: 'Batalhas no período',
-    value: filteredBattles.value.length,
+    value: roundsDataset.value.length,
     helper: `${filterState.range === 'all' ? 'intervalo completo' : `${filterState.range} dias`} analisados`,
   },
   {
@@ -915,7 +925,7 @@ const statsCards = computed(() => [
   {
     label: 'Empates',
     value: resultSummary.value.draws,
-    helper: `${filteredBattles.value.length ? Math.round((resultSummary.value.draws / filteredBattles.value.length) * 100) : 0}% dos jogos`,
+    helper: `${roundsDataset.value.length ? Math.round((resultSummary.value.draws / roundsDataset.value.length) * 100) : 0}% das batalhas`,
   },
   {
     label: 'Arenas ativas',
@@ -945,6 +955,63 @@ function battleComboIds(battle) {
   return {
     a: battle.comboAId ?? battle.comboA?.id ?? null,
     b: battle.comboBId ?? battle.comboB?.id ?? null,
+  };
+}
+
+function roundsFromBattle(battle) {
+  const ids = battleComboIds(battle);
+  const occurredAtTs = battle.occurredAt ? new Date(battle.occurredAt).getTime() : null;
+  const baseArena = battle.arena ? { id: battle.arena.id, name: battle.arena.name } : null;
+  const turns = Array.isArray(battle.turns) ? battle.turns : [];
+
+  const fallbackRound = {
+    battleId: battle.id,
+    comboAId: ids.a,
+    comboBId: ids.b,
+    winner: battle.result,
+    victoryType: battle.victoryType?.trim() || (battle.result === 'DRAW' ? 'Empate' : 'Sem registro'),
+    occurredAtTs,
+    arena: baseArena,
+  };
+
+  if (!turns.length) return [fallbackRound];
+
+  return turns
+    .filter((turn) => Boolean(turn?.winner))
+    .map((turn, index) => ({
+      battleId: battle.id,
+      index,
+      comboAId: ids.a,
+      comboBId: ids.b,
+      winner: turn.winner,
+      victoryType: turn.victoryType?.trim() || (turn.winner === 'DRAW' ? 'Empate' : 'Sem registro'),
+      occurredAtTs,
+      arena: baseArena,
+    }));
+}
+
+const roundsDataset = computed(() => filteredBattles.value.flatMap((battle) => roundsFromBattle(battle)));
+
+function aggregateRoundsForComboIds(comboIdsSet, sourceRounds = roundsDataset.value) {
+  const stats = { total: 0, wins: 0, losses: 0, draws: 0 };
+  if (!comboIdsSet || comboIdsSet.size === 0) return { ...stats, winrate: '0.0' };
+  for (const round of sourceRounds) {
+    const hasA = round.comboAId && comboIdsSet.has(round.comboAId);
+    const hasB = round.comboBId && comboIdsSet.has(round.comboBId);
+    if (!hasA && !hasB) continue;
+    stats.total += 1;
+    if (round.winner === 'DRAW' || (hasA && hasB)) {
+      stats.draws += 1;
+      continue;
+    }
+    const winnerIsA = round.winner === 'COMBO_A';
+    if ((winnerIsA && hasA) || (!winnerIsA && hasB)) stats.wins += 1;
+    else stats.losses += 1;
+  }
+  const decisive = stats.total - stats.draws;
+  return {
+    ...stats,
+    winrate: decisive > 0 ? ((stats.wins / decisive) * 100).toFixed(1) : '0.0',
   };
 }
 
@@ -998,16 +1065,21 @@ const comboFocusBattles = computed(() => {
   });
 });
 
+const comboFocusRounds = computed(() => {
+  if (!activeCombo.value) return [];
+  return roundsDataset.value.filter((round) => round.comboAId === activeCombo.value.id || round.comboBId === activeCombo.value.id);
+});
+
 const comboFocusStats = computed(() => {
   if (!activeCombo.value) return null;
-  return aggregateForComboIds(new Set([activeCombo.value.id]), comboFocusBattles.value);
+  return aggregateRoundsForComboIds(new Set([activeCombo.value.id]), comboFocusRounds.value);
 });
 
 const comboVictoryProfile = computed(() => {
-  if (!comboFocusBattles.value.length) return [];
-  const total = comboFocusBattles.value.length;
-  const counts = comboFocusBattles.value.reduce((acc, battle) => {
-    const label = battle.victoryType?.trim() || (battle.result === 'DRAW' ? 'Empate' : 'Sem registro');
+  if (!comboFocusRounds.value.length) return [];
+  const total = comboFocusRounds.value.length;
+  const counts = comboFocusRounds.value.reduce((acc, round) => {
+    const label = round.victoryType || (round.winner === 'DRAW' ? 'Empate' : 'Sem registro');
     acc[label] = (acc[label] ?? 0) + 1;
     return acc;
   }, {});
@@ -1023,20 +1095,21 @@ const comboVictoryProfile = computed(() => {
 const comboArenaFocus = computed(() => {
   if (!activeCombo.value) return [];
   const map = new Map();
-  comboFocusBattles.value.forEach((battle) => {
-    if (!battle.arena?.id) return;
-    const entry = map.get(battle.arena.id) ?? {
-      id: battle.arena.id,
-      name: battle.arena.name,
+  comboFocusRounds.value.forEach((round) => {
+    if (!round.arena?.id) return;
+    const entry = map.get(round.arena.id) ?? {
+      id: round.arena.id,
+      name: round.arena.name,
       total: 0,
       wins: 0,
     };
     entry.total += 1;
-    if (battle.result !== 'DRAW') {
-      const winnerId = battle.result === 'COMBO_A' ? battleComboIds(battle).a : battleComboIds(battle).b;
+    if (round.winner !== 'DRAW') {
+      const winnerIsA = round.winner === 'COMBO_A';
+      const winnerId = winnerIsA ? round.comboAId : round.comboBId;
       if (winnerId === activeCombo.value.id) entry.wins += 1;
     }
-    map.set(battle.arena.id, entry);
+    map.set(round.arena.id, entry);
   });
   return [...map.values()]
     .map((entry) => ({
@@ -1050,12 +1123,11 @@ const comboArenaFocus = computed(() => {
 const comboOpponentsFocus = computed(() => {
   if (!activeCombo.value) return [];
   const map = new Map();
-  comboFocusBattles.value.forEach((battle) => {
-    const ids = battleComboIds(battle);
-    const isA = ids.a === activeCombo.value.id;
-    const opponent = isA ? battle.comboB : battle.comboA;
-    const opponentId = isA ? ids.b : ids.a;
+  comboFocusRounds.value.forEach((round) => {
+    const isA = round.comboAId === activeCombo.value.id;
+    const opponentId = isA ? round.comboBId : round.comboAId;
     if (!opponentId) return;
+    const opponent = comboIndex.value.get(opponentId);
     const entry = map.get(opponentId) ?? {
       id: opponentId,
       name: opponent?.name ?? 'Combo adversário',
@@ -1065,8 +1137,8 @@ const comboOpponentsFocus = computed(() => {
       draws: 0,
     };
     entry.total += 1;
-    if (battle.result === 'DRAW') entry.draws += 1;
-    else if ((battle.result === 'COMBO_A' && isA) || (battle.result === 'COMBO_B' && !isA)) entry.wins += 1;
+    if (round.winner === 'DRAW') entry.draws += 1;
+    else if ((round.winner === 'COMBO_A' && isA) || (round.winner === 'COMBO_B' && !isA)) entry.wins += 1;
     else entry.losses += 1;
     map.set(opponentId, entry);
   });
@@ -1095,7 +1167,7 @@ const comboPartPerformance = computed(() => {
     .map((part) => {
       const relatedCombos = combosUsingPart(part.id);
       const comboIds = new Set(relatedCombos.map((combo) => combo.id));
-      const stats = aggregateForComboIds(comboIds);
+      const stats = aggregateRoundsForComboIds(comboIds);
       const partData = part.meta ?? partIndex.value.get(part.id);
       return {
         role: part.role,
@@ -1143,7 +1215,7 @@ const comboSynergyOverview = computed(() => {
       return {
         ...pair,
         combos: comboIds.size,
-        ...aggregateForComboIds(comboIds),
+        ...aggregateRoundsForComboIds(comboIds),
       };
     })
     .filter((entry) => entry.combos > 0)
