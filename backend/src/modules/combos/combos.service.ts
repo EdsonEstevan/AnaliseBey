@@ -10,16 +10,26 @@ const comboInclude = {
   blade: true,
   ratchet: true,
   bit: true,
+  assistBlade: true,
 } satisfies Prisma.ComboInclude;
 
 type ComboWithParts = Prisma.ComboGetPayload<{ include: typeof comboInclude }>;
 
+const normalizePart = (part?: Part | null) =>
+  part
+    ? {
+        ...part,
+        tags: ensureStringArray(part.tags as unknown),
+      }
+    : null;
+
 const serializeCombo = (combo: ComboWithParts) => ({
   ...combo,
   tags: ensureStringArray(combo.tags as unknown),
-  blade: { ...combo.blade, tags: ensureStringArray(combo.blade.tags as unknown) },
-  ratchet: { ...combo.ratchet, tags: ensureStringArray(combo.ratchet.tags as unknown) },
-  bit: { ...combo.bit, tags: ensureStringArray(combo.bit.tags as unknown) },
+  blade: normalizePart(combo.blade)!,
+  ratchet: normalizePart(combo.ratchet)!,
+  bit: normalizePart(combo.bit)!,
+  assistBlade: normalizePart(combo.assistBlade),
 });
 
 async function fetchPartOrThrow(partId: string) {
@@ -30,15 +40,52 @@ async function fetchPartOrThrow(partId: string) {
   return part;
 }
 
-async function ensurePartMatchesType(partId: string, expected: PartType) {
+async function ensurePartMatchesType(partId: string, expected: PartType | PartType[]) {
   const part = await fetchPartOrThrow(partId);
-  if (part.type !== expected) {
-    throw badRequest(`Peça ${part.name} não é do tipo ${expected}.`);
+  const allowed = Array.isArray(expected) ? expected : [expected];
+  if (!allowed.includes(part.type as PartType)) {
+    const label = allowed.length === 1 ? allowed[0] : allowed.join(' ou ');
+    throw badRequest(`Peça ${part.name} precisa ser do tipo ${label}.`);
   }
   if (part.archived) {
     throw badRequest(`Peça ${part.name} está arquivada.`);
   }
   return part;
+}
+
+function isCxVariant(part: Part) {
+  return (part.variant ?? '').toUpperCase().includes('CX');
+}
+
+function ensureAssistCompatibility(blade: Part, assist?: Part | null) {
+  if (!assist) return;
+  if (!isCxVariant(blade)) {
+    throw badRequest(`${blade.name} não suporta Assist Blades.`);
+  }
+  if (!isCxVariant(assist)) {
+    throw badRequest(`Assist ${assist.name} precisa ser da linha CX.`);
+  }
+}
+
+function ensureIntegratedPairing(blade: Part, ratchet: Part, bit: Part) {
+  const ratchetIntegrated = ratchet.type === 'RATCHET_BIT';
+  const bitIntegrated = bit.type === 'RATCHET_BIT';
+
+  if (ratchetIntegrated !== bitIntegrated) {
+    throw badRequest('Bits integrados precisam ser usados com o mesmo Ratchet integrado.');
+  }
+
+  if (ratchetIntegrated && bitIntegrated) {
+    if (ratchet.id !== bit.id) {
+      throw badRequest('Ratchet e Bit integrados devem ser a mesma peça.');
+    }
+    if (!isCxVariant(blade)) {
+      throw badRequest(`${blade.name} não suporta unidades integradas de CX.`);
+    }
+    if (!isCxVariant(ratchet)) {
+      throw badRequest(`${ratchet.name} precisa ser da linha CX para uso integrado.`);
+    }
+  }
 }
 
 function extractRatchetCode(name: string) {
@@ -83,15 +130,18 @@ function buildComboName(
   return `${bladeLabel}${ratchetCode}${bitInitial}`;
 }
 
-function deriveArchetype(blade: Part, ratchet: Part, bit: Part): Archetype {
+function deriveArchetype(blade: Part, ratchet: Part, bit: Part, assist?: Part | null): Archetype {
   const bladeArchetype = ensureArchetype(blade.archetype);
   const ratchetArchetype = ensureArchetype(ratchet.archetype);
   const bitArchetype = ensureArchetype(bit.archetype);
+  const assistArchetype = assist ? ensureArchetype(assist.archetype) : null;
 
   const tally = new Map<Archetype, number>();
-  [bladeArchetype, ratchetArchetype, bitArchetype].forEach((arch) => {
+  [bladeArchetype, ratchetArchetype, bitArchetype, assistArchetype]
+    .filter((arch): arch is Archetype => Boolean(arch))
+    .forEach((arch) => {
     tally.set(arch, (tally.get(arch) ?? 0) + 1);
-  });
+    });
 
   const sorted = [...tally.entries()].sort((a, b) => b[1] - a[1]);
   const topCount = sorted[0]?.[1] ?? 0;
@@ -107,8 +157,8 @@ function deriveArchetype(blade: Part, ratchet: Part, bit: Part): Archetype {
   return bitArchetype;
 }
 
-function deriveSubArchetype(blade: Part, ratchet: Part, bit: Part) {
-  return blade.subArchetype ?? ratchet.subArchetype ?? bit.subArchetype ?? null;
+function deriveSubArchetype(blade: Part, ratchet: Part, bit: Part, assist?: Part | null) {
+  return blade.subArchetype ?? assist?.subArchetype ?? ratchet.subArchetype ?? bit.subArchetype ?? null;
 }
 
 export type ComboFilters = {
@@ -151,13 +201,20 @@ export async function getCombo(id: string) {
 export async function createCombo(payload: ComboPayload) {
   const [blade, ratchet, bit] = await Promise.all([
     ensurePartMatchesType(payload.bladeId, 'BLADE'),
-    ensurePartMatchesType(payload.ratchetId, 'RATCHET'),
-    ensurePartMatchesType(payload.bitId, 'BIT'),
+    ensurePartMatchesType(payload.ratchetId, ['RATCHET', 'RATCHET_BIT']),
+    ensurePartMatchesType(payload.bitId, ['BIT', 'RATCHET_BIT']),
   ]);
 
+  const assistBlade = payload.assistBladeId
+    ? await ensurePartMatchesType(payload.assistBladeId, 'ASSIST')
+    : null;
+
+  ensureIntegratedPairing(blade, ratchet, bit);
+  ensureAssistCompatibility(blade, assistBlade);
+
   const name = buildComboName(blade, ratchet, bit);
-  const archetype = deriveArchetype(blade, ratchet, bit);
-  const subArchetype = deriveSubArchetype(blade, ratchet, bit);
+  const archetype = deriveArchetype(blade, ratchet, bit, assistBlade);
+  const subArchetype = deriveSubArchetype(blade, ratchet, bit, assistBlade);
 
   const combo = await prisma.combo.create({
     data: {
@@ -165,6 +222,7 @@ export async function createCombo(payload: ComboPayload) {
       bladeId: blade.id,
       ratchetId: ratchet.id,
       bitId: bit.id,
+      assistBladeId: assistBlade?.id ?? null,
       archetype,
       subArchetype,
       tags: toJsonArray(payload.tags),
@@ -186,16 +244,31 @@ export async function updateCombo(id: string, payload: Partial<ComboPayload>) {
   const bladeId = payload.bladeId ?? existing.bladeId;
   const ratchetId = payload.ratchetId ?? existing.ratchetId;
   const bitId = payload.bitId ?? existing.bitId;
+  const assistBladeId =
+    payload.assistBladeId === undefined ? existing.assistBladeId : payload.assistBladeId;
 
   const [blade, ratchet, bit] = await Promise.all([
     payload.bladeId ? ensurePartMatchesType(bladeId, 'BLADE') : fetchPartOrThrow(bladeId),
-    payload.ratchetId ? ensurePartMatchesType(ratchetId, 'RATCHET') : fetchPartOrThrow(ratchetId),
-    payload.bitId ? ensurePartMatchesType(bitId, 'BIT') : fetchPartOrThrow(bitId),
+    payload.ratchetId
+      ? ensurePartMatchesType(ratchetId, ['RATCHET', 'RATCHET_BIT'])
+      : fetchPartOrThrow(ratchetId),
+    payload.bitId
+      ? ensurePartMatchesType(bitId, ['BIT', 'RATCHET_BIT'])
+      : fetchPartOrThrow(bitId),
   ]);
 
+  const assistBlade = assistBladeId
+    ? payload.assistBladeId !== undefined
+      ? await ensurePartMatchesType(assistBladeId, 'ASSIST')
+      : await fetchPartOrThrow(assistBladeId)
+    : null;
+
+  ensureIntegratedPairing(blade, ratchet, bit);
+  ensureAssistCompatibility(blade, assistBlade);
+
   const name = buildComboName(blade, ratchet, bit);
-  const archetype = deriveArchetype(blade, ratchet, bit);
-  const subArchetype = deriveSubArchetype(blade, ratchet, bit);
+  const archetype = deriveArchetype(blade, ratchet, bit, assistBlade);
+  const subArchetype = deriveSubArchetype(blade, ratchet, bit, assistBlade);
 
   const combo = await prisma.combo.update({
     where: { id },
@@ -204,6 +277,7 @@ export async function updateCombo(id: string, payload: Partial<ComboPayload>) {
       bladeId,
       ratchetId,
       bitId,
+      assistBladeId: assistBladeId ?? null,
       archetype,
       subArchetype,
       tags: payload.tags ? toJsonArray(payload.tags) : existing.tags,
@@ -234,6 +308,7 @@ export async function duplicateCombo(id: string) {
       bladeId: combo.bladeId,
       ratchetId: combo.ratchetId,
       bitId: combo.bitId,
+      assistBladeId: combo.assistBladeId,
       archetype: combo.archetype,
       subArchetype: combo.subArchetype,
       tags: toJsonArray(combo.tags),

@@ -18,18 +18,28 @@
         />
         <RouterLink to="/combos" class="text-sm text-primary">Voltar</RouterLink>
       </div>
-      <div class="grid sm:grid-cols-3 gap-4 text-sm text-slate-300">
+      <div class="grid sm:grid-cols-4 gap-4 text-sm text-slate-300">
         <div>
           <p class="text-slate-500">Blade</p>
           <p>{{ combo.blade.name }}</p>
         </div>
         <div>
+          <p class="text-slate-500">Assist Blade</p>
+          <p>{{ combo.assistBlade?.name || '—' }}</p>
+        </div>
+        <div>
           <p class="text-slate-500">Ratchet</p>
-          <p>{{ combo.ratchet.name }}</p>
+          <p>
+            {{ combo.ratchet.name }}
+            <span v-if="combo.ratchet.type === 'RATCHET_BIT'" class="text-xs text-primary/70">(Integrado)</span>
+          </p>
         </div>
         <div>
           <p class="text-slate-500">Bit</p>
-          <p>{{ combo.bit.name }}</p>
+          <p>
+            {{ combo.bit.name }}
+            <span v-if="combo.bit.type === 'RATCHET_BIT'" class="text-xs text-primary/70">(Integrado)</span>
+          </p>
         </div>
       </div>
       <div class="mt-4 grid sm:grid-cols-4 gap-4">

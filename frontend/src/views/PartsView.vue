@@ -167,7 +167,7 @@
         </div>
       </header>
 
-      <div class="grid gap-4 lg:grid-cols-3">
+      <div class="grid gap-4 lg:grid-cols-4">
         <label class="text-sm">
           <span class="text-slate-400">Blade</span>
           <select v-model="comboForm.bladeId" class="mt-1 input">
@@ -178,8 +178,20 @@
           </select>
         </label>
         <label class="text-sm">
+          <span class="text-slate-400">Assist Blade (CX)</span>
+          <select v-model="comboForm.assistBladeId" class="mt-1 input" :disabled="!assistEnabled">
+            <option value="">Opcional</option>
+            <option v-for="assist in assistOptions" :key="assist.id" :value="assist.id">
+              {{ assist.name }}
+            </option>
+          </select>
+          <p class="text-xs mt-1" :class="assistEnabled ? 'text-slate-500' : 'text-amber-400'">
+            {{ assistEnabled ? 'Compatível com blades CX selecionadas.' : 'Selecione uma blade CX para liberar.' }}
+          </p>
+        </label>
+        <label class="text-sm">
           <span class="text-slate-400">Ratchet</span>
-          <select v-model="comboForm.ratchetId" class="mt-1 input">
+          <select v-model="comboForm.ratchetId" class="mt-1 input" :disabled="isIntegratedActive">
             <option value="">Selecione um Ratchet</option>
             <option v-for="ratchet in ratchetOptions" :key="ratchet.id" :value="ratchet.id">
               {{ ratchet.name }}
@@ -188,13 +200,34 @@
         </label>
         <label class="text-sm">
           <span class="text-slate-400">Bit</span>
-          <select v-model="comboForm.bitId" class="mt-1 input">
+          <select v-model="comboForm.bitId" class="mt-1 input" :disabled="isIntegratedActive">
             <option value="">Selecione um Bit</option>
             <option v-for="bit in bitOptions" :key="bit.id" :value="bit.id">
               {{ bit.name }}
             </option>
           </select>
         </label>
+      </div>
+
+      <div class="border border-slate-800 rounded-2xl bg-slate-950/40 p-4 space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="text-slate-400 text-sm">Ratchet + Bit integrados (CX)</p>
+            <p class="text-xs text-slate-500">Escolha uma unidade integrada para preencher automaticamente Ratchet e Bit.</p>
+          </div>
+          <button v-if="isIntegratedActive" type="button" class="text-xs text-primary" @click="clearIntegratedUnit">
+            Remover integrado
+          </button>
+        </div>
+        <select v-model="comboForm.integratedPartId" class="input" :disabled="!integratedEnabled">
+          <option value="">Usar peças separadas</option>
+          <option v-for="unit in integratedOptions" :key="unit.id" :value="unit.id">
+            {{ unit.name }}
+          </option>
+        </select>
+        <p class="text-xs" :class="integratedEnabled ? 'text-slate-500' : 'text-amber-400'">
+          {{ integratedEnabled ? 'Disponível apenas para blades CX.' : 'Selecione uma blade CX para liberar os integrados.' }}
+        </p>
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">
@@ -242,7 +275,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, onMounted } from 'vue';
+import { computed, reactive, ref, onMounted, watch } from 'vue';
 
 import { usePartsStore } from '../stores/parts';
 import { useCombosStore } from '../stores/combos';
@@ -269,6 +302,8 @@ const comboForm = reactive({
   bladeId: '',
   ratchetId: '',
   bitId: '',
+  assistBladeId: '',
+  integratedPartId: '',
   tags: '',
   notes: '',
 });
@@ -284,6 +319,10 @@ onMounted(async () => {
 const bladeOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'BLADE' && !part.archived));
 const ratchetOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'RATCHET' && !part.archived));
 const bitOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'BIT' && !part.archived));
+const assistOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'ASSIST' && !part.archived));
+const integratedOptions = computed(() =>
+  partsStore.catalog.filter((part) => part.type === 'RATCHET_BIT' && !part.archived),
+);
 
 function normalize(text) {
   return text
@@ -309,6 +348,50 @@ function extractBitInitial(name) {
 function findPart(partId) {
   return partsStore.catalog.find((part) => part.id === partId);
 }
+
+const selectedComboBlade = computed(() => findPart(comboForm.bladeId));
+
+function isCxPart(part) {
+  return Boolean(part?.variant?.toUpperCase().includes('CX'));
+}
+
+const assistEnabled = computed(() => isCxPart(selectedComboBlade.value));
+const integratedEnabled = computed(() => isCxPart(selectedComboBlade.value));
+const isIntegratedActive = computed(() => Boolean(comboForm.integratedPartId));
+
+watch(
+  () => comboForm.integratedPartId,
+  (id) => {
+    if (id) {
+      comboForm.ratchetId = id;
+      comboForm.bitId = id;
+    }
+  },
+);
+
+watch(
+  () => [comboForm.ratchetId, comboForm.bitId],
+  ([ratchetId, bitId]) => {
+    if (
+      comboForm.integratedPartId &&
+      (ratchetId !== comboForm.integratedPartId || bitId !== comboForm.integratedPartId)
+    ) {
+      comboForm.integratedPartId = '';
+    }
+  },
+);
+
+watch(
+  () => comboForm.bladeId,
+  () => {
+    if (!assistEnabled.value) {
+      comboForm.assistBladeId = '';
+    }
+    if (!integratedEnabled.value && comboForm.integratedPartId) {
+      comboForm.integratedPartId = '';
+    }
+  },
+);
 
 function deriveArchetypeFromParts(blade, ratchet, bit) {
   if (!blade || !ratchet || !bit) return '';
@@ -357,14 +440,28 @@ function maybeAssignPartToBuilder(part) {
   if (part.type === 'BLADE') comboForm.bladeId = part.id;
   if (part.type === 'RATCHET') comboForm.ratchetId = part.id;
   if (part.type === 'BIT') comboForm.bitId = part.id;
+  if (part.type === 'ASSIST') comboForm.assistBladeId = part.id;
+  if (part.type === 'RATCHET_BIT') {
+    comboForm.integratedPartId = part.id;
+    comboForm.ratchetId = part.id;
+    comboForm.bitId = part.id;
+  }
 }
 
 function resetComboForm() {
   comboForm.bladeId = '';
   comboForm.ratchetId = '';
   comboForm.bitId = '';
+  comboForm.assistBladeId = '';
+  comboForm.integratedPartId = '';
   comboForm.tags = '';
   comboForm.notes = '';
+}
+
+function clearIntegratedUnit() {
+  comboForm.integratedPartId = '';
+  comboForm.ratchetId = '';
+  comboForm.bitId = '';
 }
 
 async function createComboFromParts() {
@@ -377,6 +474,7 @@ async function createComboFromParts() {
       bladeId: comboForm.bladeId,
       ratchetId: comboForm.ratchetId,
       bitId: comboForm.bitId,
+      assistBladeId: comboForm.assistBladeId || undefined,
       tags: builderTagsFromInput(),
       notes: comboForm.notes?.trim() || undefined,
     };

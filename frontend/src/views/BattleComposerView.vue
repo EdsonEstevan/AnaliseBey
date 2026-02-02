@@ -227,6 +227,7 @@
             </select>
             <ul class="text-sm text-slate-300 space-y-1">
               <li><span class="text-slate-500">Blade:</span> {{ selectedComboA?.blade?.name || '—' }}</li>
+              <li><span class="text-slate-500">Assist:</span> {{ selectedComboA?.assistBlade?.name || '—' }}</li>
               <li><span class="text-slate-500">Ratchet:</span> {{ selectedComboA?.ratchet?.name || '—' }}</li>
               <li><span class="text-slate-500">Bit:</span> {{ selectedComboA?.bit?.name || '—' }}</li>
               <li><span class="text-slate-500">Tags:</span> {{ selectedComboA?.tags?.join(', ') || '—' }}</li>
@@ -241,19 +242,67 @@
               </select>
             </label>
             <label class="text-sm">
+              <span class="text-slate-400">Assist Blade (CX)</span>
+              <select
+                v-model="comboBuilders.A.assistBladeId"
+                class="input mt-1"
+                :disabled="isView || !assistEnabled('A')"
+              >
+                <option value="">Opcional</option>
+                <option v-for="assist in assistOptions" :key="assist.id" :value="assist.id">
+                  {{ assist.name }}
+                </option>
+              </select>
+              <p class="text-xs" :class="assistEnabled('A') ? 'text-slate-500' : 'text-amber-400'">
+                {{ assistEnabled('A') ? 'Disponível para blades CX.' : 'Selecione uma blade CX para habilitar.' }}
+              </p>
+            </label>
+            <label class="text-sm">
               <span class="text-slate-400">Ratchet</span>
-              <select v-model="comboBuilders.A.ratchetId" class="input mt-1" :disabled="isView">
+              <select
+                v-model="comboBuilders.A.ratchetId"
+                class="input mt-1"
+                :disabled="isView || isIntegratedActive('A')"
+              >
                 <option value="" disabled>Selecione</option>
                 <option v-for="part in ratchetOptions" :key="part.id" :value="part.id">{{ part.name }}</option>
               </select>
             </label>
             <label class="text-sm">
               <span class="text-slate-400">Bit</span>
-              <select v-model="comboBuilders.A.bitId" class="input mt-1" :disabled="isView">
+              <select
+                v-model="comboBuilders.A.bitId"
+                class="input mt-1"
+                :disabled="isView || isIntegratedActive('A')"
+              >
                 <option value="" disabled>Selecione</option>
                 <option v-for="part in bitOptions" :key="part.id" :value="part.id">{{ part.name }}</option>
               </select>
             </label>
+            <div class="border border-slate-800 rounded-xl p-3 space-y-2 bg-slate-950/30">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-sm text-slate-400">Ratchet + Bit integrados (CX)</span>
+                <button
+                  v-if="isIntegratedActive('A') && !isView"
+                  type="button"
+                  class="text-xs text-primary"
+                  @click="clearIntegrated('A')"
+                >
+                  Remover
+                </button>
+              </div>
+              <select
+                v-model="comboBuilders.A.integratedPartId"
+                class="input"
+                :disabled="isView || !integratedEnabled('A')"
+              >
+                <option value="">Usar peças separadas</option>
+                <option v-for="unit in integratedOptions" :key="unit.id" :value="unit.id">{{ unit.name }}</option>
+              </select>
+              <p class="text-xs" :class="integratedEnabled('A') ? 'text-slate-500' : 'text-amber-400'">
+                {{ integratedEnabled('A') ? 'Sincroniza automaticamente Ratchet e Bit.' : 'Selecione uma blade CX para liberar.' }}
+              </p>
+            </div>
             <label class="text-sm">
               <span class="text-slate-400">Tags (vírgula)</span>
               <input v-model="comboBuilders.A.tags" class="input mt-1" :disabled="isView" />
@@ -334,6 +383,7 @@
             </select>
             <ul class="text-sm text-slate-300 space-y-1">
               <li><span class="text-slate-500">Blade:</span> {{ selectedComboB?.blade?.name || '—' }}</li>
+              <li><span class="text-slate-500">Assist:</span> {{ selectedComboB?.assistBlade?.name || '—' }}</li>
               <li><span class="text-slate-500">Ratchet:</span> {{ selectedComboB?.ratchet?.name || '—' }}</li>
               <li><span class="text-slate-500">Bit:</span> {{ selectedComboB?.bit?.name || '—' }}</li>
               <li><span class="text-slate-500">Tags:</span> {{ selectedComboB?.tags?.join(', ') || '—' }}</li>
@@ -348,19 +398,67 @@
               </select>
             </label>
             <label class="text-sm">
+              <span class="text-slate-400">Assist Blade (CX)</span>
+              <select
+                v-model="comboBuilders.B.assistBladeId"
+                class="input mt-1"
+                :disabled="isView || !assistEnabled('B')"
+              >
+                <option value="">Opcional</option>
+                <option v-for="assist in assistOptions" :key="assist.id" :value="assist.id">
+                  {{ assist.name }}
+                </option>
+              </select>
+              <p class="text-xs" :class="assistEnabled('B') ? 'text-slate-500' : 'text-amber-400'">
+                {{ assistEnabled('B') ? 'Disponível para blades CX.' : 'Selecione uma blade CX para habilitar.' }}
+              </p>
+            </label>
+            <label class="text-sm">
               <span class="text-slate-400">Ratchet</span>
-              <select v-model="comboBuilders.B.ratchetId" class="input mt-1" :disabled="isView">
+              <select
+                v-model="comboBuilders.B.ratchetId"
+                class="input mt-1"
+                :disabled="isView || isIntegratedActive('B')"
+              >
                 <option value="" disabled>Selecione</option>
                 <option v-for="part in ratchetOptions" :key="part.id" :value="part.id">{{ part.name }}</option>
               </select>
             </label>
             <label class="text-sm">
               <span class="text-slate-400">Bit</span>
-              <select v-model="comboBuilders.B.bitId" class="input mt-1" :disabled="isView">
+              <select
+                v-model="comboBuilders.B.bitId"
+                class="input mt-1"
+                :disabled="isView || isIntegratedActive('B')"
+              >
                 <option value="" disabled>Selecione</option>
                 <option v-for="part in bitOptions" :key="part.id" :value="part.id">{{ part.name }}</option>
               </select>
             </label>
+            <div class="border border-slate-800 rounded-xl p-3 space-y-2 bg-slate-950/30">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-sm text-slate-400">Ratchet + Bit integrados (CX)</span>
+                <button
+                  v-if="isIntegratedActive('B') && !isView"
+                  type="button"
+                  class="text-xs text-primary"
+                  @click="clearIntegrated('B')"
+                >
+                  Remover
+                </button>
+              </div>
+              <select
+                v-model="comboBuilders.B.integratedPartId"
+                class="input"
+                :disabled="isView || !integratedEnabled('B')"
+              >
+                <option value="">Usar peças separadas</option>
+                <option v-for="unit in integratedOptions" :key="unit.id" :value="unit.id">{{ unit.name }}</option>
+              </select>
+              <p class="text-xs" :class="integratedEnabled('B') ? 'text-slate-500' : 'text-amber-400'">
+                {{ integratedEnabled('B') ? 'Sincroniza automaticamente Ratchet e Bit.' : 'Selecione uma blade CX para liberar.' }}
+              </p>
+            </div>
             <label class="text-sm">
               <span class="text-slate-400">Tags (vírgula)</span>
               <input v-model="comboBuilders.B.tags" class="input mt-1" :disabled="isView" />
@@ -618,6 +716,8 @@ function createBuilderState() {
     bladeId: '',
     ratchetId: '',
     bitId: '',
+    assistBladeId: '',
+    integratedPartId: '',
     tags: '',
     notes: '',
   };
@@ -629,6 +729,74 @@ const comboBuilders = reactive({
 });
 
 const builderLoading = reactive({ A: false, B: false });
+
+const cxSlots = ['A', 'B'];
+
+function findPart(partId) {
+  return partsStore.catalog.find((part) => part.id === partId);
+}
+
+function builderBlade(slot) {
+  return findPart(comboBuilders[slot].bladeId);
+}
+
+function isCxPart(part) {
+  return Boolean(part?.variant?.toUpperCase().includes('CX'));
+}
+
+function assistEnabled(slot) {
+  return isCxPart(builderBlade(slot));
+}
+
+function integratedEnabled(slot) {
+  return assistEnabled(slot);
+}
+
+function isIntegratedActive(slot) {
+  return Boolean(comboBuilders[slot].integratedPartId);
+}
+
+function clearIntegrated(slot) {
+  comboBuilders[slot].integratedPartId = '';
+  comboBuilders[slot].ratchetId = '';
+  comboBuilders[slot].bitId = '';
+}
+
+cxSlots.forEach((slot) => {
+  watch(
+    () => comboBuilders[slot].integratedPartId,
+    (id) => {
+      if (id) {
+        comboBuilders[slot].ratchetId = id;
+        comboBuilders[slot].bitId = id;
+      }
+    },
+  );
+
+  watch(
+    () => [comboBuilders[slot].ratchetId, comboBuilders[slot].bitId],
+    ([ratchetId, bitId]) => {
+      if (
+        comboBuilders[slot].integratedPartId &&
+        (comboBuilders[slot].integratedPartId !== ratchetId || comboBuilders[slot].integratedPartId !== bitId)
+      ) {
+        comboBuilders[slot].integratedPartId = '';
+      }
+    },
+  );
+
+  watch(
+    () => comboBuilders[slot].bladeId,
+    () => {
+      if (!assistEnabled(slot)) {
+        comboBuilders[slot].assistBladeId = '';
+      }
+      if (!integratedEnabled(slot)) {
+        comboBuilders[slot].integratedPartId = '';
+      }
+    },
+  );
+});
 
 const victoryKinds = ['Burst Finish', 'Spin Finish', 'Over Finish', 'Xtreme Finish'];
 
@@ -763,6 +931,10 @@ const selectedArena = computed(() => arenasStore.items.find((arena) => arena.id 
 const bladeOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'BLADE' && !part.archived));
 const ratchetOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'RATCHET' && !part.archived));
 const bitOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'BIT' && !part.archived));
+const assistOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'ASSIST' && !part.archived));
+const integratedOptions = computed(() =>
+  partsStore.catalog.filter((part) => part.type === 'RATCHET_BIT' && !part.archived),
+);
 
 const scoreData = computed(() => {
   const base = { a: 0, b: 0 };
@@ -1023,6 +1195,7 @@ async function createComboInline(slot) {
       bladeId: comboBuilders[slot].bladeId,
       ratchetId: comboBuilders[slot].ratchetId,
       bitId: comboBuilders[slot].bitId,
+      assistBladeId: comboBuilders[slot].assistBladeId || undefined,
       tags: builderTags(slot),
       notes: comboBuilders[slot].notes?.trim() || undefined,
     };

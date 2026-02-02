@@ -12,6 +12,7 @@ const battleInclude = {
       blade: true,
       ratchet: true,
       bit: true,
+      assistBlade: true,
     },
   },
   comboB: {
@@ -19,6 +20,7 @@ const battleInclude = {
       blade: true,
       ratchet: true,
       bit: true,
+      assistBlade: true,
     },
   },
   bladerA: true,
@@ -139,6 +141,9 @@ function serializeCombo(combo: BattleWithRelations['comboA']) {
     blade: { ...combo.blade, tags: ensureStringArray(combo.blade.tags as unknown) },
     ratchet: { ...combo.ratchet, tags: ensureStringArray(combo.ratchet.tags as unknown) },
     bit: { ...combo.bit, tags: ensureStringArray(combo.bit.tags as unknown) },
+    assistBlade: combo.assistBlade
+      ? { ...combo.assistBlade, tags: ensureStringArray(combo.assistBlade.tags as unknown) }
+      : null,
   };
 }
 

@@ -46,6 +46,22 @@ type BitSpec = {
   notes?: string;
 };
 
+type AssistSpec = {
+  name: string;
+  line: Extract<LineCode, 'CX'>;
+  archetype: Archetype;
+  weight?: number;
+  notes?: string;
+};
+
+type RatchetBitSpec = {
+  name: string;
+  line: Extract<LineCode, 'CX'>;
+  archetype: Archetype;
+  weight: number;
+  notes?: string;
+};
+
 function extractDigitsOrFallback(name: string) {
   const digits = name.replace(/\D/g, '');
   if (digits.length > 0) {
@@ -133,6 +149,9 @@ async function main() {
     { name: 'Mummy Curse', archetype: 'DEFENSE', weight: 37.5, line: 'UX' },
     { name: 'WizardRod', archetype: 'STAMINA', weight: 35.3, line: 'UX' },
     { name: 'MeteorDragoon', archetype: 'ATTACK', weight: 39.0, line: 'UX' },
+    { name: 'Tempest Dragon', archetype: 'ATTACK', weight: 38.5, line: 'CX' },
+    { name: 'Aegis Hydra', archetype: 'DEFENSE', weight: 37.1, line: 'CX' },
+    { name: 'Mirage Crane', archetype: 'STAMINA', weight: 36.4, line: 'CX' },
   ];
 
   const bitSpecs: BitSpec[] = [
@@ -175,6 +194,12 @@ async function main() {
     { name: 'Vortex', line: 'CX', archetype: 'ATTACK', weight: 2.2 },
   ];
 
+  const assistSpecs: AssistSpec[] = [
+    { name: 'Edge Boost Assist', line: 'CX', archetype: 'ATTACK', weight: 5.8 },
+    { name: 'Shell Guard Assist', line: 'CX', archetype: 'DEFENSE', weight: 5.6 },
+    { name: 'Horizon Glide Assist', line: 'CX', archetype: 'STAMINA', weight: 5.4 },
+  ];
+
   const ratchetSpecs: RatchetSpec[] = [
     { name: '0-60', line: 'CX', archetype: 'ATTACK', weight: 7.0 },
     { name: '0-70', line: 'CX', archetype: 'STAMINA', weight: 6.9 },
@@ -208,6 +233,11 @@ async function main() {
     { name: '9-70', line: 'UX', archetype: 'BALANCE', weight: 6.3 },
     { name: '9-80', line: 'BX', archetype: 'ATTACK', weight: 6.9 },
     { name: 'M-85', line: 'BX', archetype: 'DEFENSE', weight: 10.6 },
+  ];
+
+  const ratchetBitSpecs: RatchetBitSpec[] = [
+    { name: 'F-4-60', line: 'CX', archetype: 'ATTACK', weight: 8.2 },
+    { name: 'N-5-70', line: 'CX', archetype: 'DEFENSE', weight: 8.6 },
   ];
 
   const partsData: SeedPart[] = [
@@ -246,6 +276,28 @@ async function main() {
         notes: spec.notes,
         imageUrl: placeholder(`Bit ${spec.name}`),
       })),
+    ...assistSpecs.map((spec) => ({
+      name: spec.name,
+      type: 'ASSIST' as PartType,
+      archetype: spec.archetype,
+      variant: spec.line,
+      subArchetype: `Assist ${spec.line}`,
+      weight: spec.weight,
+      tags: ['CX', 'ASSIST'],
+      notes: spec.notes,
+      imageUrl: placeholder(`Assist ${spec.name}`),
+    })),
+    ...ratchetBitSpecs.map((spec) => ({
+      name: spec.name,
+      type: 'RATCHET_BIT' as PartType,
+      archetype: spec.archetype,
+      variant: spec.line,
+      subArchetype: `Linha ${spec.line}`,
+      weight: spec.weight,
+      tags: ['CX', 'INTEGRADO'],
+      notes: spec.notes,
+      imageUrl: placeholder(`Unidade ${spec.name}`),
+    })),
   ];
 
   const parts = {} as Record<string, string>;
@@ -307,6 +359,32 @@ async function main() {
         archetype: 'BALANCE',
         subArchetype: 'Flow Sync',
         imageUrl: placeholder('Wave Combo'),
+      },
+    }),
+    prisma.combo.create({
+      data: {
+        name: buildComboName('Tempest Dragon', 'F-4-60', 'F-4-60'),
+        bladeId: parts['Tempest Dragon'],
+        ratchetId: parts['F-4-60'],
+        bitId: parts['F-4-60'],
+        assistBladeId: parts['Edge Boost Assist'],
+        archetype: 'ATTACK',
+        subArchetype: 'CX Blitz',
+        tags: toJsonArray(['CX', 'integrado']),
+        imageUrl: placeholder('Tempest CX'),
+      },
+    }),
+    prisma.combo.create({
+      data: {
+        name: buildComboName('Mirage Crane', 'N-5-70', 'N-5-70'),
+        bladeId: parts['Mirage Crane'],
+        ratchetId: parts['N-5-70'],
+        bitId: parts['N-5-70'],
+        assistBladeId: parts['Horizon Glide Assist'],
+        archetype: 'STAMINA',
+        subArchetype: 'CX Sustain',
+        tags: toJsonArray(['CX']),
+        imageUrl: placeholder('Mirage CX'),
       },
     }),
   ]);

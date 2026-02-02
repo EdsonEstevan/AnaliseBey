@@ -62,8 +62,16 @@
           </div>
           <ul class="text-sm text-slate-300 space-y-1">
             <li><span class="text-slate-500">Blade:</span> {{ combo.blade.name }}</li>
-            <li><span class="text-slate-500">Ratchet:</span> {{ combo.ratchet.name }}</li>
-            <li><span class="text-slate-500">Bit:</span> {{ combo.bit.name }}</li>
+            <li v-if="combo.assistBlade"><span class="text-slate-500">Assist Blade:</span> {{ combo.assistBlade.name }}</li>
+            <li v-if="combo.ratchet?.type === 'RATCHET_BIT'">
+              <span class="text-slate-500">Ratchet + Bit:</span>
+              {{ combo.ratchet.name }}
+              <span class="text-xs text-primary/80">(Integrado)</span>
+            </li>
+            <template v-else>
+              <li><span class="text-slate-500">Ratchet:</span> {{ combo.ratchet.name }}</li>
+              <li><span class="text-slate-500">Bit:</span> {{ combo.bit.name }}</li>
+            </template>
           </ul>
           <div class="text-xs text-slate-500 flex items-center justify-between">
             <span>Tags: {{ combo.tags?.join(', ') || '—' }}</span>
@@ -102,19 +110,60 @@
           </select>
         </label>
         <label class="text-sm">
+          <span class="text-slate-400">Assist Blade (CX)</span>
+          <select v-model="form.assistBladeId" class="input mt-1" :disabled="!assistEnabled">
+            <option value="">Opcional</option>
+            <option v-for="assist in assistBlades" :key="assist.id" :value="assist.id">
+              {{ assist.name }}
+            </option>
+          </select>
+          <p class="text-xs mt-1" :class="assistEnabled ? 'text-slate-500' : 'text-amber-400'">
+            {{ assistEnabled ? 'Compatível apenas com blades CX.' : 'Selecione uma Blade CX para habilitar.' }}
+          </p>
+        </label>
+        <label class="text-sm">
           <span class="text-slate-400">Ratchet</span>
-          <select v-model="form.ratchetId" required class="input mt-1">
+          <select v-model="form.ratchetId" required class="input mt-1" :disabled="isIntegratedActive">
             <option value="" disabled>Selecione</option>
             <option v-for="part in ratchets" :key="part.id" :value="part.id">{{ part.name }}</option>
           </select>
         </label>
         <label class="text-sm">
           <span class="text-slate-400">Bit</span>
-          <select v-model="form.bitId" required class="input mt-1">
+          <select v-model="form.bitId" required class="input mt-1" :disabled="isIntegratedActive">
             <option value="" disabled>Selecione</option>
             <option v-for="part in bits" :key="part.id" :value="part.id">{{ part.name }}</option>
           </select>
         </label>
+        <div class="md:col-span-2 border border-slate-800 rounded-xl bg-slate-950/30 p-4 space-y-2">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-slate-400 text-sm">Ratchet + Bit integrados (CX)</p>
+              <p class="text-xs text-slate-500">Ao selecionar uma unidade integrada, os campos de Ratchet e Bit são preenchidos automaticamente.</p>
+            </div>
+            <button
+              v-if="isIntegratedActive"
+              type="button"
+              class="text-xs text-primary"
+              @click="clearIntegrated"
+            >
+              Remover integrado
+            </button>
+          </div>
+          <select
+            v-model="form.integratedPartId"
+            class="input"
+            :disabled="!integratedEnabled"
+          >
+            <option value="">Usar componentes separados</option>
+            <option v-for="unit in integratedRatchetBits" :key="unit.id" :value="unit.id">
+              {{ unit.name }}
+            </option>
+          </select>
+          <p class="text-xs" :class="integratedEnabled ? 'text-slate-500' : 'text-amber-400'">
+            {{ integratedEnabled ? 'Disponível apenas para combos Custom X.' : 'Selecione uma Blade CX para liberar os integrados.' }}
+          </p>
+        </div>
         <label class="text-sm">
           <span class="text-slate-400">Tags (vírgula)</span>
           <input v-model="form.tags" class="input mt-1" />
@@ -154,7 +203,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 
 import { useCombosStore } from '../stores/combos';
@@ -171,6 +220,8 @@ const form = reactive({
   bladeId: '',
   ratchetId: '',
   bitId: '',
+  assistBladeId: '',
+  integratedPartId: '',
   tags: '',
   notes: '',
   imageUrl: '',
@@ -188,10 +239,53 @@ onMounted(async () => {
 const blades = computed(() => partsStore.catalog.filter((p) => p.type === 'BLADE' && !p.archived));
 const ratchets = computed(() => partsStore.catalog.filter((p) => p.type === 'RATCHET' && !p.archived));
 const bits = computed(() => partsStore.catalog.filter((p) => p.type === 'BIT' && !p.archived));
+const assistBlades = computed(() => partsStore.catalog.filter((p) => p.type === 'ASSIST' && !p.archived));
+const integratedRatchetBits = computed(() =>
+  partsStore.catalog.filter((p) => p.type === 'RATCHET_BIT' && !p.archived),
+);
 
 const selectedBlade = computed(() => partsStore.catalog.find((p) => p.id === form.bladeId));
 const selectedRatchet = computed(() => partsStore.catalog.find((p) => p.id === form.ratchetId));
 const selectedBit = computed(() => partsStore.catalog.find((p) => p.id === form.bitId));
+
+function isCxPart(part) {
+  return Boolean(part?.variant?.toUpperCase().includes('CX'));
+}
+
+const assistEnabled = computed(() => isCxPart(selectedBlade.value));
+const integratedEnabled = computed(() => isCxPart(selectedBlade.value));
+const isIntegratedActive = computed(() => Boolean(form.integratedPartId));
+
+watch(
+  () => form.integratedPartId,
+  (id) => {
+    if (id) {
+      form.ratchetId = id;
+      form.bitId = id;
+    }
+  },
+);
+
+watch(
+  () => [form.ratchetId, form.bitId],
+  ([ratchetId, bitId]) => {
+    if (form.integratedPartId && (ratchetId !== form.integratedPartId || bitId !== form.integratedPartId)) {
+      form.integratedPartId = '';
+    }
+  },
+);
+
+watch(
+  () => form.bladeId,
+  () => {
+    if (!assistEnabled.value) {
+      form.assistBladeId = '';
+    }
+    if (!integratedEnabled.value && form.integratedPartId) {
+      form.integratedPartId = '';
+    }
+  },
+);
 
 function deriveArchetypeFromParts(blade, ratchet, bit) {
   if (!blade || !ratchet || !bit) return '';
@@ -243,6 +337,7 @@ async function submit() {
     bladeId: form.bladeId,
     ratchetId: form.ratchetId,
     bitId: form.bitId,
+    assistBladeId: form.assistBladeId || undefined,
     tags: form.tags ? form.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
     notes: form.notes || undefined,
     imageUrl: form.imageUrl?.trim() ? form.imageUrl.trim() : null,
@@ -255,9 +350,17 @@ function resetForm() {
   form.bladeId = '';
   form.ratchetId = '';
   form.bitId = '';
+  form.assistBladeId = '';
+  form.integratedPartId = '';
   form.tags = '';
   form.notes = '';
   form.imageUrl = '';
+}
+
+function clearIntegrated() {
+  form.integratedPartId = '';
+  form.ratchetId = '';
+  form.bitId = '';
 }
 
 function triggerFilePicker() {

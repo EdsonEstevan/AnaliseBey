@@ -445,8 +445,16 @@
         </header>
         <ul class="flex flex-wrap gap-6 text-sm text-slate-300">
           <li><span class="text-slate-500">Blade:</span> {{ activeCombo?.blade?.name || '—' }}</li>
-          <li><span class="text-slate-500">Ratchet:</span> {{ activeCombo?.ratchet?.name || '—' }}</li>
-          <li><span class="text-slate-500">Bit:</span> {{ activeCombo?.bit?.name || '—' }}</li>
+          <li><span class="text-slate-500">Assist:</span> {{ activeCombo?.assistBlade?.name || '—' }}</li>
+          <li v-if="activeCombo?.ratchet?.type === 'RATCHET_BIT'">
+            <span class="text-slate-500">Ratchet + Bit:</span>
+            {{ activeCombo?.ratchet?.name || '—' }}
+            <span class="text-xs text-primary/80">(Integrado)</span>
+          </li>
+          <template v-else>
+            <li><span class="text-slate-500">Ratchet:</span> {{ activeCombo?.ratchet?.name || '—' }}</li>
+            <li><span class="text-slate-500">Bit:</span> {{ activeCombo?.bit?.name || '—' }}</li>
+          </template>
         </ul>
         <p v-if="!comboFocusRounds.length" class="text-sm text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded-xl px-4 py-2">
           Nenhuma rodada do combo atual corresponde aos filtros selecionados. Ajuste o período ou resultado para liberar os gráficos.
@@ -1538,8 +1546,14 @@ const comboOpponentsFocus = computed(() => {
     .slice(0, 5);
 });
 
+function comboPartIds(combo) {
+  const parts = [combo.bladeId, combo.ratchetId, combo.bitId];
+  if (combo.assistBladeId) parts.push(combo.assistBladeId);
+  return parts.filter(Boolean);
+}
+
 function combosUsingPart(partId) {
-  return combosStore.items.filter((combo) => [combo.bladeId, combo.ratchetId, combo.bitId].includes(partId));
+  return combosStore.items.filter((combo) => comboPartIds(combo).includes(partId));
 }
 
 const comboPartPerformance = computed(() => {
@@ -1548,6 +1562,15 @@ const comboPartPerformance = computed(() => {
     { role: 'Blade', id: activeCombo.value.bladeId, meta: activeCombo.value.blade },
     { role: 'Ratchet', id: activeCombo.value.ratchetId, meta: activeCombo.value.ratchet },
     { role: 'Bit', id: activeCombo.value.bitId, meta: activeCombo.value.bit },
+    ...(activeCombo.value.assistBladeId
+      ? [
+          {
+            role: 'Assist Blade',
+            id: activeCombo.value.assistBladeId,
+            meta: activeCombo.value.assistBlade,
+          },
+        ]
+      : []),
   ];
   return parts
     .filter((part) => part.id)
@@ -1574,6 +1597,7 @@ const comboSynergyOverview = computed(() => {
   const bladeName = activeCombo.value.blade?.name || 'Blade';
   const ratchetName = activeCombo.value.ratchet?.name || 'Ratchet';
   const bitName = activeCombo.value.bit?.name || 'Bit';
+  const assistName = activeCombo.value.assistBlade?.name || 'Assist';
   const pairs = [
     {
       label: 'blade-ratchet',
@@ -1590,14 +1614,32 @@ const comboSynergyOverview = computed(() => {
       name: `${ratchetName} + ${bitName}`,
       parts: [activeCombo.value.ratchetId, activeCombo.value.bitId],
     },
+    ...(activeCombo.value.assistBladeId
+      ? [
+          {
+            label: 'blade-assist',
+            name: `${bladeName} + ${assistName}`,
+            parts: [activeCombo.value.bladeId, activeCombo.value.assistBladeId],
+          },
+          {
+            label: 'assist-ratchet',
+            name: `${assistName} + ${ratchetName}`,
+            parts: [activeCombo.value.assistBladeId, activeCombo.value.ratchetId],
+          },
+          {
+            label: 'assist-bit',
+            name: `${assistName} + ${bitName}`,
+            parts: [activeCombo.value.assistBladeId, activeCombo.value.bitId],
+          },
+        ]
+      : []),
   ];
   return pairs
     .filter((pair) => pair.parts.every(Boolean))
     .map((pair) => {
-      const relatedCombos = combosStore.items.filter((combo) => {
-        const parts = [combo.bladeId, combo.ratchetId, combo.bitId];
-        return pair.parts.every((partId) => parts.includes(partId));
-      });
+      const relatedCombos = combosStore.items.filter((combo) =>
+        pair.parts.every((partId) => comboPartIds(combo).includes(partId)),
+      );
       const comboIds = new Set(relatedCombos.map((combo) => combo.id));
       return {
         ...pair,
@@ -1630,6 +1672,25 @@ const globalSynergyReport = computed(() => {
         ids: [combo.ratchetId, combo.bitId],
         name: `${combo.ratchet?.name || 'Ratchet'} + ${combo.bit?.name || 'Bit'}`,
       },
+      ...(combo.assistBladeId
+        ? [
+            {
+              label: 'Blade + Assist',
+              ids: [combo.bladeId, combo.assistBladeId],
+              name: `${combo.blade?.name || 'Blade'} + ${combo.assistBlade?.name || 'Assist'}`,
+            },
+            {
+              label: 'Assist + Ratchet',
+              ids: [combo.assistBladeId, combo.ratchetId],
+              name: `${combo.assistBlade?.name || 'Assist'} + ${combo.ratchet?.name || 'Ratchet'}`,
+            },
+            {
+              label: 'Assist + Bit',
+              ids: [combo.assistBladeId, combo.bitId],
+              name: `${combo.assistBlade?.name || 'Assist'} + ${combo.bit?.name || 'Bit'}`,
+            },
+          ]
+        : []),
     ];
     pairs
       .filter((pair) => pair.ids.every(Boolean))
