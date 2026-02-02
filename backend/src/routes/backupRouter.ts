@@ -6,6 +6,8 @@ import { toJsonArray } from '../utils/json';
 
 export const backupRouter = Router();
 
+const DEFAULT_PART_ARCHETYPE = 'BALANCE';
+
 const importSchema = z.object({
   parts: z
     .array(
@@ -13,7 +15,7 @@ const importSchema = z.object({
         id: z.string().optional(),
         name: z.string(),
         type: z.string(),
-        archetype: z.string(),
+        archetype: z.string().nullish(),
         variant: z.string().optional(),
         weight: z.number().optional(),
         tags: z.array(z.string()).optional(),
@@ -113,11 +115,12 @@ backupRouter.post('/json', async (req, res) => {
     }
 
     for (const part of payload.parts) {
+      const archetype = part.archetype ?? DEFAULT_PART_ARCHETYPE;
       const data = {
         id: part.id,
         name: part.name,
         type: part.type as any,
-        archetype: part.archetype as any,
+        archetype: archetype as any,
         variant: part.variant,
         weight: part.weight,
         tags: toJsonArray(part.tags),
