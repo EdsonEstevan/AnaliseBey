@@ -25,6 +25,7 @@ model Part {
   combosAsBlade   Combo[] @relation("Blade")
   combosAsRatchet Combo[] @relation("Ratchet")
   combosAsBit     Combo[] @relation("Bit")
+  combosAsAssist  Combo[] @relation("AssistBlade")
 }
 
 model Arena {
@@ -45,6 +46,7 @@ model Combo {
   bladeId   String
   ratchetId String
   bitId     String
+  assistBladeId String?
   archetype String
   subArchetype String?
   tags      String?  @default("[]")
@@ -54,9 +56,10 @@ model Combo {
   updatedAt DateTime @updatedAt
   status    String   @default("ACTIVE")
 
-  blade   Part @relation("Blade", fields: [bladeId], references: [id])
-  ratchet Part @relation("Ratchet", fields: [ratchetId], references: [id])
-  bit     Part @relation("Bit", fields: [bitId], references: [id])
+  blade       Part @relation("Blade", fields: [bladeId], references: [id])
+  ratchet     Part @relation("Ratchet", fields: [ratchetId], references: [id])
+  bit         Part @relation("Bit", fields: [bitId], references: [id])
+  assistBlade Part? @relation("AssistBlade", fields: [assistBladeId], references: [id])
 
   battlesAsComboA Battle[] @relation("ComboA")
   battlesAsComboB Battle[] @relation("ComboB")
