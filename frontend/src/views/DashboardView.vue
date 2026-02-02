@@ -285,8 +285,19 @@
               </span>
             </div>
             <p class="text-xs text-slate-500 mt-1">
+              {{ roundDescriptor(round) }} ·
               {{ round.occurredAtTs ? formatDate(round.occurredAtTs) : 'Data não informada' }} ·
-              {{ round.arena?.name || 'Arena livre' }} · {{ round.victoryType || 'Tipo não informado' }}
+              {{ round.arena?.name || 'Arena livre' }} ·
+              <span>
+                {{ round.type === 'SUMMARY'
+                  ? round.score
+                    ? `Placar ${round.score}`
+                    : 'Placar não informado'
+                  : round.victoryType || 'Tipo não informado' }}
+              </span>
+            </p>
+            <p v-if="round.notes" class="text-xs text-slate-500 mt-1 italic">
+              {{ round.notes }}
             </p>
           </li>
           <li v-if="latestRounds.length === 0" class="text-center text-slate-500 text-sm">
@@ -535,8 +546,19 @@
                 </span>
               </div>
               <p class="text-xs text-slate-500 mt-1">
+                {{ roundDescriptor(round) }} ·
                 {{ round.occurredAtTs ? formatDate(round.occurredAtTs) : 'Data não informada' }} ·
-                {{ round.arena?.name || 'Arena livre' }} · {{ round.victoryType || 'Tipo não registrado' }}
+                {{ round.arena?.name || 'Arena livre' }} ·
+                <span>
+                  {{ round.type === 'SUMMARY'
+                    ? round.score
+                      ? `Placar ${round.score}`
+                      : 'Placar não informado'
+                    : round.victoryType || 'Tipo não registrado' }}
+                </span>
+              </p>
+              <p v-if="round.notes" class="text-xs text-slate-500 mt-1 italic">
+                {{ round.notes }}
               </p>
             </li>
             <li v-if="!comboRecentRounds.length" class="text-center text-slate-500 text-sm">
@@ -955,6 +977,13 @@ function resultColor(code) {
   return 'text-slate-500';
 }
 
+function roundDescriptor(round) {
+  if (round?.type === 'ROUND' && typeof round.index === 'number') {
+    return `Rodada ${round.index + 1}`;
+  }
+  return 'Resumo da partida';
+}
+
 function battleComboIds(battle) {
   return {
     a: battle.comboAId ?? battle.comboA?.id ?? null,
@@ -970,12 +999,16 @@ function roundsFromBattle(battle) {
 
   const fallbackRound = {
     battleId: battle.id,
+    index: null,
     comboAId: ids.a,
     comboBId: ids.b,
     winner: battle.result,
     victoryType: battle.victoryType?.trim() || (battle.result === 'DRAW' ? 'Empate' : 'Sem registro'),
     occurredAtTs,
     arena: baseArena,
+    notes: battle.notes?.trim() || null,
+    score: battle.score || null,
+    type: 'SUMMARY',
   };
 
   if (!turns.length) return [fallbackRound];
@@ -991,6 +1024,9 @@ function roundsFromBattle(battle) {
       victoryType: turn.victoryType?.trim() || (turn.winner === 'DRAW' ? 'Empate' : 'Sem registro'),
       occurredAtTs,
       arena: baseArena,
+      notes: turn.notes?.trim() || null,
+      score: null,
+      type: 'ROUND',
     }));
 }
 
