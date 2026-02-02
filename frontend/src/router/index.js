@@ -10,6 +10,7 @@ import BattleComposerView from '../views/BattleComposerView.vue';
 import AnalysisView from '../views/AnalysisView.vue';
 import SettingsView from '../views/SettingsView.vue';
 import DecksView from '../views/DecksView.vue';
+import BladersView from '../views/BladersView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -25,6 +26,7 @@ const router = createRouter({
     { path: '/battles/:id/edit', name: 'battle-edit', component: BattleComposerView, props: true },
     { path: '/analysis', component: AnalysisView },
     { path: '/decks', component: DecksView },
+    { path: '/bladers', component: BladersView },
     { path: '/settings', component: SettingsView },
   ],
 });

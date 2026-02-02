@@ -21,6 +21,13 @@ const deckInclude = {
       },
     },
   },
+  blader: {
+    select: {
+      id: true,
+      name: true,
+      nickname: true,
+    },
+  },
 } satisfies Prisma.DeckInclude;
 
 type DeckWithRelations = Prisma.DeckGetPayload<{ include: typeof deckInclude }>;
@@ -43,6 +50,13 @@ const serializeDeck = (deck: DeckWithRelations) => ({
   name: deck.name,
   side: deck.side,
   notes: deck.notes,
+  blader: deck.blader
+    ? {
+        id: deck.blader.id,
+        name: deck.blader.name,
+        nickname: deck.blader.nickname,
+      }
+    : null,
   createdAt: deck.createdAt,
   updatedAt: deck.updatedAt,
   slots: deck.slots.map<DeckSlotDTO>((slot) => ({
@@ -76,6 +90,14 @@ async function ensureComboExists(id: string) {
   return combo.id;
 }
 
+async function ensureBladerExists(id: string) {
+  const blader = await prisma.blader.findUnique({ where: { id } });
+  if (!blader) {
+    throw badRequest(`Blader ${id} não existe.`);
+  }
+  return blader.id;
+}
+
 function assertUniqueComboIds(comboIds: string[]) {
   const seen = new Set<string>();
   comboIds.forEach((comboId) => {
@@ -103,12 +125,17 @@ export async function createDeck(payload: DeckPayload) {
   const comboIds = payload.comboIds.map((comboId) => comboId.trim()).filter(Boolean);
   assertUniqueComboIds(comboIds);
   await Promise.all(comboIds.map((comboId) => ensureComboExists(comboId)));
+  const bladerId = payload.bladerId?.trim() || null;
+  if (bladerId) {
+    await ensureBladerExists(bladerId);
+  }
 
   const deck = await prisma.deck.create({
     data: {
       name: payload.name,
       side: payload.side ?? null,
       notes: payload.notes ?? null,
+      bladerId,
       slots: {
         create: comboIds.map((comboId, index) => ({
           comboId,
@@ -129,6 +156,15 @@ export async function updateDeck(id: string, payload: Partial<DeckPayload>) {
   if (payload.name !== undefined) data.name = payload.name;
   if (payload.side !== undefined) data.side = payload.side ?? null;
   if (payload.notes !== undefined) data.notes = payload.notes ?? null;
+  if (payload.bladerId !== undefined) {
+    const bladerId = payload.bladerId?.trim() || null;
+    if (bladerId) {
+      await ensureBladerExists(bladerId);
+    }
+    data.blader = bladerId
+      ? { connect: { id: bladerId } }
+      : { disconnect: true };
+  }
 
   const comboIds = payload.comboIds?.map((comboId) => comboId.trim()).filter(Boolean);
   if (comboIds && comboIds.length > 0) {

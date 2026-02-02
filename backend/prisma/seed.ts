@@ -76,6 +76,9 @@ function buildComboName(blade: string, ratchet: string, bit: string) {
 async function main() {
   console.log('Limpando base...');
   await prisma.battle.deleteMany();
+  await prisma.deckSlot.deleteMany();
+  await prisma.deck.deleteMany();
+  await prisma.blader.deleteMany();
   await prisma.combo.deleteMany();
   await prisma.arena.deleteMany();
   await prisma.part.deleteMany();
@@ -310,11 +313,64 @@ async function main() {
 
   console.log('Criando batalhas de exemplo...');
   const [comboA, comboB, comboC] = combos;
+  console.log('Criando bladers...');
+  const bladerA = await prisma.blader.create({
+    data: {
+      name: 'Kai Tanaka',
+      nickname: 'Alpha Kai',
+      age: 16,
+      country: 'Brasil',
+      team: 'Team Nova',
+      notes: 'Titular do laboratório',
+    },
+  });
+  const bladerB = await prisma.blader.create({
+    data: {
+      name: 'Maya Lopes',
+      nickname: 'Storm Maya',
+      age: 17,
+      country: 'Brasil',
+      team: 'Storm League',
+    },
+  });
+
+  console.log('Criando decks baseados nos bladers...');
+  await prisma.deck.create({
+    data: {
+      name: 'Alpha Kai Deck',
+      side: 'A',
+      bladerId: bladerA.id,
+      slots: {
+        create: [
+          { comboId: comboA.id, position: 1 },
+          { comboId: comboB.id, position: 2 },
+          { comboId: comboC.id, position: 3 },
+        ],
+      },
+    },
+  });
+
+  await prisma.deck.create({
+    data: {
+      name: 'Storm Maya Deck',
+      side: 'B',
+      bladerId: bladerB.id,
+      slots: {
+        create: [
+          { comboId: comboB.id, position: 1 },
+          { comboId: comboC.id, position: 2 },
+        ],
+      },
+    },
+  });
+
   await prisma.battle.createMany({
     data: [
       {
         comboAId: comboA.id,
         comboBId: comboB.id,
+        bladerAId: bladerA.id,
+        bladerBId: bladerB.id,
         result: 'COMBO_A',
         victoryType: 'knockout',
         arenaId: arena.id,
@@ -322,6 +378,8 @@ async function main() {
       {
         comboAId: comboA.id,
         comboBId: comboC.id,
+        bladerAId: bladerA.id,
+        bladerBId: bladerB.id,
         result: 'COMBO_B',
         victoryType: 'spin',
         arenaId: arena2.id,
@@ -329,6 +387,8 @@ async function main() {
       {
         comboAId: comboB.id,
         comboBId: comboC.id,
+        bladerAId: bladerB.id,
+        bladerBId: bladerA.id,
         result: 'DRAW',
         victoryType: 'over',
         arenaId: arena.id,

@@ -21,6 +21,8 @@ const battleInclude = {
       bit: true,
     },
   },
+  bladerA: true,
+  bladerB: true,
   arena: true,
 } satisfies Prisma.BattleInclude;
 
@@ -33,11 +35,10 @@ type BattleTurn = {
 };
 
 const victoryPoints = new Map<string, number>([
-  ['overfinish', 2],
   ['burstfinish', 2],
-  ['knockout', 2],
   ['spinfinish', 1],
-  ['equalizacao', 1],
+  ['overfinish', 2],
+  ['xtremefinish', 3],
   ['extremefinish', 3],
 ]);
 
@@ -54,6 +55,11 @@ function pointsForVictory(value?: string | null) {
   const key = normalizeVictoryKey(value);
   if (!key) return 1;
   return victoryPoints.get(key) ?? 1;
+}
+
+function normalizeBladerId(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : null;
 }
 
 function sanitizeTurns(turns?: BattleTurnPayload[] | null): BattleTurn[] {
@@ -140,6 +146,20 @@ const serializeBattle = (battle: BattleWithRelations) => ({
   ...battle,
   comboA: serializeCombo(battle.comboA),
   comboB: serializeCombo(battle.comboB),
+  bladerA: battle.bladerA
+    ? {
+        id: battle.bladerA.id,
+        name: battle.bladerA.name,
+        nickname: battle.bladerA.nickname,
+      }
+    : null,
+  bladerB: battle.bladerB
+    ? {
+        id: battle.bladerB.id,
+        name: battle.bladerB.name,
+        nickname: battle.bladerB.nickname,
+      }
+    : null,
   arena: battle.arena
     ? { ...battle.arena, tags: ensureStringArray(battle.arena.tags as unknown) }
     : null,
@@ -154,9 +174,18 @@ async function ensureCombo(id: string) {
   return combo;
 }
 
+async function ensureBlader(id: string) {
+  const blader = await prisma.blader.findUnique({ where: { id } });
+  if (!blader) {
+    throw badRequest(`Blader ${id} não existe.`);
+  }
+  return blader;
+}
+
 export type BattleFilters = {
   comboId?: string;
   arenaId?: string;
+  bladerId?: string;
   result?: BattleOutcome;
   limit?: number;
 };
@@ -165,12 +194,26 @@ export async function listBattles(filters: BattleFilters = {}) {
   const where: Prisma.BattleWhereInput = {
     arenaId: filters.arenaId,
     result: filters.result,
-    ...(filters.comboId
-      ? {
-          OR: [{ comboAId: filters.comboId }, { comboBId: filters.comboId }],
-        }
-      : {}),
   };
+  const appendCondition = (condition: Prisma.BattleWhereInput) => {
+    const current = where.AND;
+    const normalized = Array.isArray(current)
+      ? current
+      : current
+        ? [current]
+        : [];
+    where.AND = [...normalized, condition];
+  };
+  if (filters.comboId) {
+    appendCondition({
+      OR: [{ comboAId: filters.comboId }, { comboBId: filters.comboId }],
+    });
+  }
+  if (filters.bladerId) {
+    appendCondition({
+      OR: [{ bladerAId: filters.bladerId }, { bladerBId: filters.bladerId }],
+    });
+  }
   const battles = await prisma.battle.findMany({
     where,
     include: battleInclude,
@@ -199,6 +242,11 @@ export async function createBattle(payload: BattlePayload) {
     ensureCombo(payload.comboAId),
     ensureCombo(payload.comboBId),
   ]);
+  const [bladerAId, bladerBId] = [normalizeBladerId(payload.bladerAId), normalizeBladerId(payload.bladerBId)];
+  await Promise.all([
+    bladerAId ? ensureBlader(bladerAId) : null,
+    bladerBId ? ensureBlader(bladerBId) : null,
+  ]);
 
   const turns = sanitizeTurns(payload.turns);
   const summary = computeScoreFromTurns(turns);
@@ -207,6 +255,8 @@ export async function createBattle(payload: BattlePayload) {
     data: {
       comboAId: comboA.id,
       comboBId: comboB.id,
+      bladerAId,
+      bladerBId,
       result: summary?.result ?? payload.result,
       score: summary?.score ?? payload.score,
       victoryType: payload.victoryType ?? summary?.victoryType ?? null,
@@ -232,6 +282,15 @@ export async function updateBattle(id: string, payload: Partial<BattlePayload>) 
   if (payload.comboBId) {
     await ensureCombo(payload.comboBId);
   }
+  const normalizedBladerAId =
+    payload.bladerAId !== undefined ? normalizeBladerId(payload.bladerAId) : undefined;
+  const normalizedBladerBId =
+    payload.bladerBId !== undefined ? normalizeBladerId(payload.bladerBId) : undefined;
+
+  await Promise.all([
+    normalizedBladerAId ? ensureBlader(normalizedBladerAId) : null,
+    normalizedBladerBId ? ensureBlader(normalizedBladerBId) : null,
+  ]);
 
   const turnsProvided = payload.turns !== undefined;
   const turns = turnsProvided ? sanitizeTurns(payload.turns ?? []) : parseBattleTurns(existing.turns as Prisma.JsonValue);
@@ -242,6 +301,8 @@ export async function updateBattle(id: string, payload: Partial<BattlePayload>) 
     data: {
       comboAId: payload.comboAId ?? existing.comboAId,
       comboBId: payload.comboBId ?? existing.comboBId,
+      bladerAId: normalizedBladerAId !== undefined ? normalizedBladerAId : existing.bladerAId,
+      bladerBId: normalizedBladerBId !== undefined ? normalizedBladerBId : existing.bladerBId,
       result: summary?.result ?? payload.result ?? existing.result,
       score: summary?.score ?? payload.score ?? existing.score,
       victoryType: payload.victoryType ?? summary?.victoryType ?? existing.victoryType,

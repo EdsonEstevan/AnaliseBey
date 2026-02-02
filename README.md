@@ -8,6 +8,14 @@ Aplicação full-stack para catalogar peças, montar combos, registrar batalhas 
 - **Backend:** Node.js + Express, Prisma ORM, SQLite (migrável para Postgres), Zod para validação.
 - **Infra:** Workspaces npm, rotas de backup/import JSON/CSV, conectores externos de peças (placeholder), scripts unificados para dev/build/deploy.
 - **Decks 3on3:** console para montar decks de até três combos e aplicar automaticamente nas batalhas simultâneas do compositor.
+- **Bladers & Equipes:** cadastro completo dos pilotos, associação direta com decks e preenchimento automático nas batalhas para consolidar estatísticas.
+
+### Bladers e vínculos de batalha
+
+- Novo CRUD disponível em `/api/bladers` (listar, criar, atualizar e remover). Os registros carregam estatísticas calculadas (total, vitórias, empates, derrotas e winrate), decks vinculados e combos mais utilizados.
+- Decks aceitam um `bladerId` opcional — ao selecionar um deck no compositor 3on3 o piloto é aplicado automaticamente aos slots correspondentes.
+- Batalhas permitem informar `bladerAId` e `bladerBId`, e o Composer passa a oferecer selects dedicados e herda os pilotos dos decks escolhidos.
+- A tela de histórico agora mostra os bladers que disputaram cada batalha e disponibiliza um filtro rápido “Filtrar por blader” para navegar apenas nos confrontos de um piloto específico.
 
 ## Estrutura do repositório
 

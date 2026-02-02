@@ -18,6 +18,30 @@
         </div>
       </header>
 
+      <div class="flex flex-wrap items-end gap-4 mb-6">
+        <label class="text-xs uppercase tracking-wide text-slate-400 flex flex-col gap-1">
+          <span>Filtrar por blader</span>
+          <select
+            v-model="selectedBladerId"
+            class="mt-1 w-56 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+            :disabled="bladersStore.loading"
+          >
+            <option value="">Todos os bladers</option>
+            <option v-for="blader in bladersStore.items" :key="blader.id" :value="blader.id">
+              {{ blader.nickname || blader.name }}
+            </option>
+          </select>
+        </label>
+        <button
+          type="button"
+          class="text-xs text-slate-400 hover:text-white"
+          :disabled="!selectedBladerId"
+          @click="clearFilters"
+        >
+          Limpar filtros
+        </button>
+      </div>
+
       <div v-if="battlesStore.items.length" class="grid xl:grid-cols-3 md:grid-cols-2 gap-4">
         <article
           v-for="battle in battlesStore.items"
@@ -43,6 +67,17 @@
             <span>Notas: {{ battle.notes ? 'Sim' : '—' }}</span>
           </div>
 
+          <div class="text-xs text-slate-400 grid gap-1">
+            <p>
+              Blader A:
+              <span class="text-slate-200">{{ battle.bladerA?.nickname || battle.bladerA?.name || '—' }}</span>
+            </p>
+            <p>
+              Blader B:
+              <span class="text-slate-200">{{ battle.bladerB?.nickname || battle.bladerB?.name || '—' }}</span>
+            </p>
+          </div>
+
           <footer class="flex items-center justify-between text-sm">
             <div class="flex gap-2">
               <RouterLink :to="`/battles/${battle.id}`" class="text-primary">Visualizar</RouterLink>
@@ -61,17 +96,19 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 
 import { useBattlesStore } from '../stores/battles';
 import { useCombosStore } from '../stores/combos';
 import { useArenasStore } from '../stores/arenas';
+import { useBladersStore } from '../stores/bladers';
 import { formatDate } from '../utils/format';
 
 const battlesStore = useBattlesStore();
 const combosStore = useCombosStore();
 const arenasStore = useArenasStore();
+const bladersStore = useBladersStore();
 
 const labels = {
   COMBO_A: 'Combo A',
@@ -79,13 +116,34 @@ const labels = {
   DRAW: 'Empate',
 };
 
+const selectedBladerId = ref('');
+
+async function refreshBattles() {
+  await battlesStore.fetchBattles({
+    limit: 120,
+    bladerId: selectedBladerId.value || undefined,
+  });
+}
+
 onMounted(async () => {
   await Promise.all([
-    battlesStore.fetchBattles({ limit: 120 }),
     combosStore.fetchCombos(),
     arenasStore.fetchArenas(),
+    bladersStore.fetchBladers(),
   ]);
+  await refreshBattles();
 });
+
+watch(
+  () => selectedBladerId.value,
+  () => {
+    void refreshBattles();
+  },
+);
+
+function clearFilters() {
+  selectedBladerId.value = '';
+}
 
 function resultLabel(result) {
   return labels[result] ?? '—';

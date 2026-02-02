@@ -32,6 +32,8 @@ export type ComboPayload = {
 export type BattlePayload = {
   comboAId: string;
   comboBId: string;
+  bladerAId?: string | null;
+  bladerBId?: string | null;
   result: BattleOutcome;
   score?: string;
   victoryType?: string;
@@ -52,4 +54,14 @@ export type DeckPayload = {
   side?: 'A' | 'B' | 'FLEX';
   notes?: string;
   comboIds: string[];
+  bladerId?: string | null;
+};
+
+export type BladerPayload = {
+  name: string;
+  nickname?: string | null;
+  age?: number | null;
+  country?: string | null;
+  team?: string | null;
+  notes?: string | null;
 };

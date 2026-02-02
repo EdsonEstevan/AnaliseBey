@@ -15,6 +15,7 @@ import { providersRouter } from './routes/providersRouter';
 import { backupRouter } from './routes/backupRouter';
 import { uploadsRouter } from './routes/uploadsRouter';
 import { decksRouter } from './routes/decksRouter';
+import { bladersRouter } from './routes/bladersRouter';
 import { uploadsDir } from './utils/storage';
 
 const app = express();
@@ -38,6 +39,7 @@ app.use('/api/arenas', arenasRouter);
 app.use('/api/combos', combosRouter);
 app.use('/api/battles', battlesRouter);
 app.use('/api/decks', decksRouter);
+app.use('/api/bladers', bladersRouter);
 app.use('/api/sync', syncRouter);
 app.use('/api/providers', providersRouter);
 app.use('/api/backup', backupRouter);

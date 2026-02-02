@@ -50,6 +50,15 @@
               <option value="B">Combo B</option>
             </select>
           </label>
+          <label class="text-sm">
+            <span class="text-slate-300">Blader responsável</span>
+            <select v-model="form.bladerId" class="deck-input mt-1">
+              <option value="">Sem vínculo</option>
+              <option v-for="blader in bladersStore.items" :key="blader.id" :value="blader.id">
+                {{ blader.nickname || blader.name }}
+              </option>
+            </select>
+          </label>
           <p class="text-xs text-slate-500">
             Associe lados para pré-preencher automaticamente os slots A ou B durante o registro múltiplo de batalhas.
           </p>
@@ -83,6 +92,9 @@
             <div>
               <p class="text-xs uppercase tracking-wider text-slate-500">{{ deck.side ?? 'FLEX' }}</p>
               <h3 class="text-lg font-semibold">{{ deck.name }}</h3>
+              <p class="text-xs text-slate-500" v-if="deck.blader">
+                Blader: {{ deck.blader.nickname || deck.blader.name }}
+              </p>
             </div>
             <div class="flex gap-2 text-xs">
               <button class="text-primary" @click="editDeck(deck)">Editar</button>
@@ -109,9 +121,11 @@ import { onMounted, reactive, ref } from 'vue';
 
 import { useCombosStore } from '../stores/combos';
 import { useDecksStore } from '../stores/decks';
+import { useBladersStore } from '../stores/bladers';
 
 const combosStore = useCombosStore();
 const decksStore = useDecksStore();
+const bladersStore = useBladersStore();
 
 const editingDeckId = ref('');
 const form = reactive({
@@ -119,6 +133,7 @@ const form = reactive({
   side: 'FLEX',
   notes: '',
   comboSlots: ['', '', ''],
+  bladerId: '',
 });
 
 function resetForm() {
@@ -127,6 +142,7 @@ function resetForm() {
   form.side = 'FLEX';
   form.notes = '';
   form.comboSlots.splice(0, form.comboSlots.length, '', '', '');
+  form.bladerId = '';
 }
 
 function loadDeck(deck) {
@@ -136,6 +152,7 @@ function loadDeck(deck) {
   form.notes = deck.notes ?? '';
   const slots = [0, 1, 2].map((index) => deck.slots[index]?.comboId ?? '');
   form.comboSlots.splice(0, form.comboSlots.length, ...slots);
+  form.bladerId = deck.blader?.id ?? '';
 }
 
 async function handleSubmit() {
@@ -149,6 +166,7 @@ async function handleSubmit() {
     side: form.side,
     notes: form.notes?.trim() || undefined,
     comboIds,
+    bladerId: form.bladerId || undefined,
   };
   if (editingDeckId.value) {
     await decksStore.updateDeck(editingDeckId.value, payload);
@@ -170,7 +188,7 @@ function editDeck(deck) {
 }
 
 onMounted(async () => {
-  await Promise.all([decksStore.fetchDecks(), combosStore.fetchCombos()]);
+  await Promise.all([decksStore.fetchDecks(), combosStore.fetchCombos(), bladersStore.fetchBladers()]);
 });
 </script>
 

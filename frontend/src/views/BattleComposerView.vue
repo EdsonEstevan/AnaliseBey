@@ -80,6 +80,29 @@
           automaticamente para cada lado.
         </p>
       </div>
+      <div class="grid gap-4 w-full md:grid-cols-2 mt-4">
+        <label class="text-sm">
+          <span class="text-xs uppercase tracking-wide text-slate-500">Blader do Combo A</span>
+          <select v-model="bladerSelections.A" class="input mt-1" :disabled="isView">
+            <option value="">Selecione um blader</option>
+            <option v-for="blader in bladersStore.items" :key="blader.id" :value="blader.id">
+              {{ blader.nickname || blader.name }}
+            </option>
+          </select>
+        </label>
+        <label class="text-sm">
+          <span class="text-xs uppercase tracking-wide text-slate-500">Blader do Combo B</span>
+          <select v-model="bladerSelections.B" class="input mt-1" :disabled="isView">
+            <option value="">Selecione um blader</option>
+            <option v-for="blader in bladersStore.items" :key="`b-${blader.id}`" :value="blader.id">
+              {{ blader.nickname || blader.name }}
+            </option>
+          </select>
+        </label>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">
+        Precisa cadastrar alguém? <RouterLink to="/bladers" class="text-primary hover:underline">Gerenciar bladers</RouterLink>
+      </p>
     </section>
 
     <div class="grid xl:grid-cols-[2fr,1fr] gap-6">
@@ -142,7 +165,12 @@
         <div class="grid gap-4 lg:grid-cols-2">
           <label class="text-sm">
             <span class="text-slate-400">Tipo geral de vitória</span>
-            <input v-model="form.victoryType" class="input mt-1" :disabled="isView" placeholder="ex.: Burst / Knockout" />
+            <input
+              v-model="form.victoryType"
+              class="input mt-1"
+              :disabled="isView"
+              placeholder="ex.: Burst / Xtreme"
+            />
           </label>
           <label class="text-sm">
             <span class="text-slate-400">Placar manual</span>
@@ -526,12 +554,14 @@ import { useCombosStore } from '../stores/combos';
 import { useArenasStore } from '../stores/arenas';
 import { usePartsStore } from '../stores/parts';
 import { useDecksStore } from '../stores/decks';
+import { useBladersStore } from '../stores/bladers';
 
 const battlesStore = useBattlesStore();
 const combosStore = useCombosStore();
 const arenasStore = useArenasStore();
 const partsStore = usePartsStore();
 const decksStore = useDecksStore();
+const bladersStore = useBladersStore();
 
 const route = useRoute();
 const router = useRouter();
@@ -540,12 +570,11 @@ const MAX_TURNS = 10;
 const MAX_MULTI_BATTLES = 3;
 
 const victoryWeights = {
-  overfinish: 2,
   burstfinish: 2,
   spinfinish: 1,
-  extremefinish: 3,
-  knockout: 2,
-  equalizacao: 1,
+  overfinish: 2,
+  xtremefinish: 3,
+  extremefinish: 3, // legacy support for registros antigos
 };
 
 function normalizeVictoryType(value) {
@@ -601,10 +630,11 @@ const comboBuilders = reactive({
 
 const builderLoading = reactive({ A: false, B: false });
 
-const victoryKinds = ['Over Finish', 'Burst Finish', 'Extreme Finish', 'Spin Finish', 'Knockout', 'Equalização'];
+const victoryKinds = ['Burst Finish', 'Spin Finish', 'Over Finish', 'Xtreme Finish'];
 
 const deckSelections = reactive({ A: '', B: '' });
 const multiSaving = ref(false);
+const bladerSelections = reactive({ A: '', B: '' });
 
 function createMultiBattleCard(index = 1) {
   return {
@@ -644,6 +674,9 @@ function applyDeckSelection(side, deckId) {
   if (!deckId) return;
   const deck = decksStore.items.find((entry) => entry.id === deckId);
   if (!deck) return;
+  if (deck.blader?.id) {
+    bladerSelections[side] = deck.blader.id;
+  }
   const requiredBattles = Math.min(deck.slots.length, MAX_MULTI_BATTLES);
   while (multiBattles.length < requiredBattles) {
     addMultiBattle();
@@ -835,6 +868,8 @@ function multiBattlePayload(battle) {
   return {
     comboAId: battle.comboAId,
     comboBId: battle.comboBId,
+    bladerAId: bladerSelections.A || undefined,
+    bladerBId: bladerSelections.B || undefined,
     arenaId: battle.arenaId || form.arenaId || undefined,
     result: summary.result,
     score: summary.score,
@@ -861,6 +896,8 @@ async function hydrateBattle(id) {
   form.score = battle.score ?? '';
   form.victoryType = battle.victoryType ?? '';
   form.notes = battle.notes ?? '';
+  bladerSelections.A = battle.bladerA?.id ?? '';
+  bladerSelections.B = battle.bladerB?.id ?? '';
   const remoteTurns = Array.isArray(battle.turns) && battle.turns.length
     ? battle.turns.map((turn, index) => ({
         id: Date.now() + index,
@@ -880,6 +917,7 @@ async function loadInitialData() {
     partsStore.fetchMetadata(),
     partsStore.fetchAllActiveParts(),
     decksStore.fetchDecks(),
+    bladersStore.fetchBladers(),
   ]);
   if (route.params.id) {
     await hydrateBattle(route.params.id);
@@ -1002,15 +1040,25 @@ async function saveBattle() {
   try {
     assertCombos();
     saving.value = true;
+    const normalizedTurns = turns
+      .filter((turn) => turn.winner)
+      .map((turn) => ({
+        winner: turn.winner,
+        victoryType: turn.victoryType?.trim() || undefined,
+        notes: turn.notes?.trim() || undefined,
+      }));
     const payload = {
       comboAId: form.comboAId,
       comboBId: form.comboBId,
+      bladerAId: bladerSelections.A || undefined,
+      bladerBId: bladerSelections.B || undefined,
       arenaId: form.arenaId || undefined,
       result: resultFromTurns.value,
       score: scoreFromTurns.value !== '0-0' ? scoreFromTurns.value : form.score || undefined,
       victoryType: victorySummary.value || undefined,
       notes: [form.notes?.trim(), turnsDigest.value].filter(Boolean).join(' | ') || undefined,
       occurredAt: form.occurredAt,
+      turns: normalizedTurns,
     };
     if (isEdit.value && route.params.id) {
       await battlesStore.updateBattle(route.params.id, payload);

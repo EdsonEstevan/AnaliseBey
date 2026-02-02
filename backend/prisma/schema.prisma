@@ -67,6 +67,8 @@ model Battle {
   id          String   @id @default(cuid())
   comboAId    String
   comboBId    String
+  bladerAId   String?
+  bladerBId   String?
   result      String
   score       String?
   victoryType String?
@@ -77,9 +79,11 @@ model Battle {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  comboA Combo @relation("ComboA", fields: [comboAId], references: [id])
-  comboB Combo @relation("ComboB", fields: [comboBId], references: [id])
-  arena  Arena? @relation(fields: [arenaId], references: [id])
+  comboA Combo  @relation("ComboA", fields: [comboAId], references: [id])
+  comboB Combo  @relation("ComboB", fields: [comboBId], references: [id])
+  bladerA Blader? @relation("BladerA", fields: [bladerAId], references: [id])
+  bladerB Blader? @relation("BladerB", fields: [bladerBId], references: [id])
+  arena  Arena?  @relation(fields: [arenaId], references: [id])
 }
 
 model Deck {
@@ -87,9 +91,11 @@ model Deck {
   name      String
   side      String?
   notes     String?
+  bladerId  String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
+  blader Blader?  @relation(fields: [bladerId], references: [id])
   slots DeckSlot[]
 }
 
@@ -105,4 +111,20 @@ model DeckSlot {
   combo Combo @relation(fields: [comboId], references: [id])
 
   @@unique([deckId, position])
+}
+
+model Blader {
+  id        String   @id @default(cuid())
+  name      String
+  nickname  String?
+  age       Int?
+  country   String?
+  team      String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  decks        Deck[]
+  battlesAsA   Battle[] @relation("BladerA")
+  battlesAsB   Battle[] @relation("BladerB")
 }

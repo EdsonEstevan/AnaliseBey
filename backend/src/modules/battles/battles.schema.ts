@@ -12,6 +12,8 @@ const battleTurnSchema = z.object({
 export const battleBodySchema = z.object({
   comboAId: z.string().min(1),
   comboBId: z.string().min(1),
+  bladerAId: z.string().min(1).optional(),
+  bladerBId: z.string().min(1).optional(),
   result: z.enum(battleOutcomeValues),
   score: z.string().optional(),
   victoryType: z.string().optional(),
@@ -24,6 +26,7 @@ export const battleBodySchema = z.object({
 export const battleFiltersSchema = z.object({
   comboId: z.string().optional(),
   arenaId: z.string().optional(),
+  bladerId: z.string().optional(),
   result: z.enum(battleOutcomeValues).optional(),
   limit: z.coerce.number().min(1).max(500).optional(),
 });

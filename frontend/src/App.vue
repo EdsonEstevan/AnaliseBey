@@ -70,6 +70,7 @@ const menu = [
   { to: '/combos', label: 'Combos' },
   { to: '/battles', label: 'Batalhas' },
   { to: '/decks', label: 'Decks' },
+  { to: '/bladers', label: 'Bladers' },
   { to: '/analysis', label: 'Análises' },
   { to: '/settings', label: 'Configurações' },
 ];
@@ -81,6 +82,7 @@ const titles = {
   '/combos': 'Combos e Montador',
   '/battles': 'Registro de Batalhas',
   '/decks': 'Decks 3on3',
+  '/bladers': 'Bladers & Equipes',
   '/analysis': 'Análises e Rankings',
   '/settings': 'Configurações & Backup',
 };
