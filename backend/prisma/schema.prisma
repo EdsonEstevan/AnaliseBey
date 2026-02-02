@@ -22,10 +22,11 @@ model Part {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  combosAsBlade   Combo[] @relation("Blade")
-  combosAsRatchet Combo[] @relation("Ratchet")
-  combosAsBit     Combo[] @relation("Bit")
-  combosAsAssist  Combo[] @relation("AssistBlade")
+  combosAsBlade    Combo[] @relation("Blade")
+  combosAsRatchet  Combo[] @relation("Ratchet")
+  combosAsBit      Combo[] @relation("Bit")
+  combosAsAssist   Combo[] @relation("AssistBlade")
+  combosAsLockChip Combo[] @relation("LockChip")
 }
 
 model Arena {
@@ -41,12 +42,13 @@ model Arena {
 }
 
 model Combo {
-  id        String   @id @default(cuid())
-  name      String
-  bladeId   String
-  ratchetId String
-  bitId     String
+  id           String   @id @default(cuid())
+  name         String
+  bladeId      String
+  ratchetId    String
+  bitId        String
   assistBladeId String?
+  lockChipId   String?
   archetype String
   subArchetype String?
   tags      String?  @default("[]")
@@ -56,10 +58,11 @@ model Combo {
   updatedAt DateTime @updatedAt
   status    String   @default("ACTIVE")
 
-  blade       Part @relation("Blade", fields: [bladeId], references: [id])
-  ratchet     Part @relation("Ratchet", fields: [ratchetId], references: [id])
-  bit         Part @relation("Bit", fields: [bitId], references: [id])
+  blade       Part  @relation("Blade", fields: [bladeId], references: [id])
+  ratchet     Part  @relation("Ratchet", fields: [ratchetId], references: [id])
+  bit         Part  @relation("Bit", fields: [bitId], references: [id])
   assistBlade Part? @relation("AssistBlade", fields: [assistBladeId], references: [id])
+  lockChip    Part? @relation("LockChip", fields: [lockChipId], references: [id])
 
   battlesAsComboA Battle[] @relation("ComboA")
   battlesAsComboB Battle[] @relation("ComboB")

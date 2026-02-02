@@ -1,4 +1,4 @@
-const partTypes = ['BLADE', 'ASSIST', 'RATCHET', 'BIT', 'RATCHET_BIT'] as const;
+const partTypes = ['BLADE', 'ASSIST', 'RATCHET', 'BIT', 'RATCHET_BIT', 'LOCK_CHIP'] as const;
 export type PartType = (typeof partTypes)[number];
 export const PartTypes = [...partTypes] as [PartType, ...PartType[]];
 

@@ -41,6 +41,7 @@ export const comboBodySchema = z.object({
   ratchetId: z.string().min(1),
   bitId: z.string().min(1),
   assistBladeId: optionalId,
+  lockChipId: optionalId,
   tags: z.array(z.string()).optional(),
   notes: z.string().optional(),
   status: z.enum(statusValues).optional(),

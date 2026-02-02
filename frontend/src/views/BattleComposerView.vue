@@ -228,6 +228,7 @@
             <ul class="text-sm text-slate-300 space-y-1">
               <li><span class="text-slate-500">Blade:</span> {{ selectedComboA?.blade?.name || '—' }}</li>
               <li><span class="text-slate-500">Assist:</span> {{ selectedComboA?.assistBlade?.name || '—' }}</li>
+              <li><span class="text-slate-500">Lock Chip:</span> {{ selectedComboB?.lockChip?.name || '—' }}</li>
               <li><span class="text-slate-500">Ratchet:</span> {{ selectedComboA?.ratchet?.name || '—' }}</li>
               <li><span class="text-slate-500">Bit:</span> {{ selectedComboA?.bit?.name || '—' }}</li>
               <li><span class="text-slate-500">Tags:</span> {{ selectedComboA?.tags?.join(', ') || '—' }}</li>
@@ -255,6 +256,22 @@
               </select>
               <p class="text-xs" :class="assistEnabled('A') ? 'text-slate-500' : 'text-amber-400'">
                 {{ assistEnabled('A') ? 'Disponível para blades CX.' : 'Selecione uma blade CX para habilitar.' }}
+              </p>
+            </label>
+            <label class="text-sm">
+              <span class="text-slate-400">Lock Chip (CX)</span>
+              <select
+                v-model="comboBuilders.A.lockChipId"
+                class="input mt-1"
+                :disabled="isView || !lockChipEnabled('A')"
+              >
+                <option value="">Selecione um Lock Chip CX</option>
+                <option v-for="chip in lockChipOptions" :key="chip.id" :value="chip.id">
+                  {{ chip.name }}
+                </option>
+              </select>
+              <p class="text-xs" :class="lockChipEnabled('A') ? 'text-slate-500' : 'text-amber-400'">
+                {{ lockChipEnabled('A') ? 'Obrigatório para blades CX.' : 'Selecione uma blade CX para habilitar.' }}
               </p>
             </label>
             <label class="text-sm">
@@ -384,6 +401,7 @@
             <ul class="text-sm text-slate-300 space-y-1">
               <li><span class="text-slate-500">Blade:</span> {{ selectedComboB?.blade?.name || '—' }}</li>
               <li><span class="text-slate-500">Assist:</span> {{ selectedComboB?.assistBlade?.name || '—' }}</li>
+              <li><span class="text-slate-500">Lock Chip:</span> {{ selectedComboA?.lockChip?.name || '—' }}</li>
               <li><span class="text-slate-500">Ratchet:</span> {{ selectedComboB?.ratchet?.name || '—' }}</li>
               <li><span class="text-slate-500">Bit:</span> {{ selectedComboB?.bit?.name || '—' }}</li>
               <li><span class="text-slate-500">Tags:</span> {{ selectedComboB?.tags?.join(', ') || '—' }}</li>
@@ -411,6 +429,22 @@
               </select>
               <p class="text-xs" :class="assistEnabled('B') ? 'text-slate-500' : 'text-amber-400'">
                 {{ assistEnabled('B') ? 'Disponível para blades CX.' : 'Selecione uma blade CX para habilitar.' }}
+              </p>
+            </label>
+            <label class="text-sm">
+              <span class="text-slate-400">Lock Chip (CX)</span>
+              <select
+                v-model="comboBuilders.B.lockChipId"
+                class="input mt-1"
+                :disabled="isView || !lockChipEnabled('B')"
+              >
+                <option value="">Selecione um Lock Chip CX</option>
+                <option v-for="chip in lockChipOptions" :key="chip.id" :value="chip.id">
+                  {{ chip.name }}
+                </option>
+              </select>
+              <p class="text-xs" :class="lockChipEnabled('B') ? 'text-slate-500' : 'text-amber-400'">
+                {{ lockChipEnabled('B') ? 'Obrigatório para blades CX.' : 'Selecione uma blade CX para habilitar.' }}
               </p>
             </label>
             <label class="text-sm">
@@ -717,6 +751,7 @@ function createBuilderState() {
     ratchetId: '',
     bitId: '',
     assistBladeId: '',
+    lockChipId: '',
     integratedPartId: '',
     tags: '',
     notes: '',
@@ -745,6 +780,10 @@ function isCxPart(part) {
 }
 
 function assistEnabled(slot) {
+  return isCxPart(builderBlade(slot));
+}
+
+function lockChipEnabled(slot) {
   return isCxPart(builderBlade(slot));
 }
 
@@ -790,6 +829,9 @@ cxSlots.forEach((slot) => {
     () => {
       if (!assistEnabled(slot)) {
         comboBuilders[slot].assistBladeId = '';
+      }
+      if (!lockChipEnabled(slot)) {
+        comboBuilders[slot].lockChipId = '';
       }
       if (!integratedEnabled(slot)) {
         comboBuilders[slot].integratedPartId = '';
@@ -932,6 +974,7 @@ const bladeOptions = computed(() => partsStore.catalog.filter((part) => part.typ
 const ratchetOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'RATCHET' && !part.archived));
 const bitOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'BIT' && !part.archived));
 const assistOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'ASSIST' && !part.archived));
+const lockChipOptions = computed(() => partsStore.catalog.filter((part) => part.type === 'LOCK_CHIP' && !part.archived));
 const integratedOptions = computed(() =>
   partsStore.catalog.filter((part) => part.type === 'RATCHET_BIT' && !part.archived),
 );
@@ -1120,6 +1163,9 @@ function assertBuilder(slot) {
   const builder = comboBuilders[slot];
   if (!builder.bladeId || !builder.ratchetId || !builder.bitId) {
     throw new Error('Selecione Blade, Ratchet e Bit.');
+  }
+  if (lockChipEnabled(slot) && !builder.lockChipId) {
+    throw new Error('Combos CX precisam de um Lock Chip.');
   }
 }
 

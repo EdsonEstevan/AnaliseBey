@@ -63,6 +63,7 @@
           <ul class="text-sm text-slate-300 space-y-1">
             <li><span class="text-slate-500">Blade:</span> {{ combo.blade.name }}</li>
             <li v-if="combo.assistBlade"><span class="text-slate-500">Assist Blade:</span> {{ combo.assistBlade.name }}</li>
+            <li v-if="combo.lockChip"><span class="text-slate-500">Lock Chip:</span> {{ combo.lockChip.name }}</li>
             <li v-if="combo.ratchet?.type === 'RATCHET_BIT'">
               <span class="text-slate-500">Ratchet + Bit:</span>
               {{ combo.ratchet.name }}
@@ -119,6 +120,23 @@
           </select>
           <p class="text-xs mt-1" :class="assistEnabled ? 'text-slate-500' : 'text-amber-400'">
             {{ assistEnabled ? 'Compatível apenas com blades CX.' : 'Selecione uma Blade CX para habilitar.' }}
+          </p>
+        </label>
+        <label class="text-sm">
+          <span class="text-slate-400">Lock Chip (CX)</span>
+          <select
+            v-model="form.lockChipId"
+            class="input mt-1"
+            :disabled="!lockChipEnabled"
+            :required="lockChipEnabled"
+          >
+            <option value="">Selecione um Lock Chip CX</option>
+            <option v-for="chip in lockChips" :key="chip.id" :value="chip.id">
+              {{ chip.name }}
+            </option>
+          </select>
+          <p class="text-xs mt-1" :class="lockChipEnabled ? 'text-slate-500' : 'text-amber-400'">
+            {{ lockChipEnabled ? 'Obrigatório para blades CX.' : 'Selecione uma Blade CX para habilitar.' }}
           </p>
         </label>
         <label class="text-sm">
@@ -221,6 +239,7 @@ const form = reactive({
   ratchetId: '',
   bitId: '',
   assistBladeId: '',
+  lockChipId: '',
   integratedPartId: '',
   tags: '',
   notes: '',
@@ -240,6 +259,7 @@ const blades = computed(() => partsStore.catalog.filter((p) => p.type === 'BLADE
 const ratchets = computed(() => partsStore.catalog.filter((p) => p.type === 'RATCHET' && !p.archived));
 const bits = computed(() => partsStore.catalog.filter((p) => p.type === 'BIT' && !p.archived));
 const assistBlades = computed(() => partsStore.catalog.filter((p) => p.type === 'ASSIST' && !p.archived));
+const lockChips = computed(() => partsStore.catalog.filter((p) => p.type === 'LOCK_CHIP' && !p.archived));
 const integratedRatchetBits = computed(() =>
   partsStore.catalog.filter((p) => p.type === 'RATCHET_BIT' && !p.archived),
 );
@@ -247,6 +267,8 @@ const integratedRatchetBits = computed(() =>
 const selectedBlade = computed(() => partsStore.catalog.find((p) => p.id === form.bladeId));
 const selectedRatchet = computed(() => partsStore.catalog.find((p) => p.id === form.ratchetId));
 const selectedBit = computed(() => partsStore.catalog.find((p) => p.id === form.bitId));
+const selectedAssist = computed(() => partsStore.catalog.find((p) => p.id === form.assistBladeId));
+const selectedLockChip = computed(() => partsStore.catalog.find((p) => p.id === form.lockChipId));
 
 function isCxPart(part) {
   return Boolean(part?.variant?.toUpperCase().includes('CX'));
@@ -254,6 +276,7 @@ function isCxPart(part) {
 
 const assistEnabled = computed(() => isCxPart(selectedBlade.value));
 const integratedEnabled = computed(() => isCxPart(selectedBlade.value));
+const lockChipEnabled = computed(() => isCxPart(selectedBlade.value));
 const isIntegratedActive = computed(() => Boolean(form.integratedPartId));
 
 watch(
@@ -281,16 +304,21 @@ watch(
     if (!assistEnabled.value) {
       form.assistBladeId = '';
     }
+    if (!lockChipEnabled.value) {
+      form.lockChipId = '';
+    }
     if (!integratedEnabled.value && form.integratedPartId) {
       form.integratedPartId = '';
     }
   },
 );
 
-function deriveArchetypeFromParts(blade, ratchet, bit) {
+function deriveArchetypeFromParts(blade, ratchet, bit, assist, lockChip) {
   if (!blade || !ratchet || !bit) return '';
   const tally = {};
-  [blade, ratchet, bit].forEach((part) => {
+  [blade, ratchet, bit, assist, lockChip]
+    .filter(Boolean)
+    .forEach((part) => {
     tally[part.archetype] = (tally[part.archetype] ?? 0) + 1;
   });
   const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
@@ -298,13 +326,21 @@ function deriveArchetypeFromParts(blade, ratchet, bit) {
   const candidates = sorted.filter(([, count]) => count === topCount).map(([key]) => key);
   if (candidates.length === 1) return candidates[0];
   if (candidates.includes(blade.archetype)) return blade.archetype;
+  if (lockChip && candidates.includes(lockChip.archetype)) return lockChip.archetype;
+  if (assist && candidates.includes(assist.archetype)) return assist.archetype;
   if (candidates.includes(ratchet.archetype)) return ratchet.archetype;
   return bit.archetype;
 }
 
 const autoArchetype = computed(() => {
   if (!selectedBlade.value || !selectedRatchet.value || !selectedBit.value) return '';
-  return deriveArchetypeFromParts(selectedBlade.value, selectedRatchet.value, selectedBit.value);
+  return deriveArchetypeFromParts(
+    selectedBlade.value,
+    selectedRatchet.value,
+    selectedBit.value,
+    selectedAssist.value,
+    selectedLockChip.value,
+  );
 });
 
 function clean(value) {
@@ -338,6 +374,7 @@ async function submit() {
     ratchetId: form.ratchetId,
     bitId: form.bitId,
     assistBladeId: form.assistBladeId || undefined,
+    lockChipId: form.lockChipId || undefined,
     tags: form.tags ? form.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
     notes: form.notes || undefined,
     imageUrl: form.imageUrl?.trim() ? form.imageUrl.trim() : null,
@@ -351,6 +388,7 @@ function resetForm() {
   form.ratchetId = '';
   form.bitId = '';
   form.assistBladeId = '';
+  form.lockChipId = '';
   form.integratedPartId = '';
   form.tags = '';
   form.notes = '';

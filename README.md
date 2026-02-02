@@ -17,6 +17,17 @@ Aplicação full-stack para catalogar peças, montar combos, registrar batalhas 
 - Batalhas permitem informar `bladerAId` e `bladerBId`, e o Composer passa a oferecer selects dedicados e herda os pilotos dos decks escolhidos.
 - A tela de histórico agora mostra os bladers que disputaram cada batalha e disponibiliza um filtro rápido “Filtrar por blader” para navegar apenas nos confrontos de um piloto específico.
 
+### Relatórios enriquecidos por bey
+
+- A página de detalhes do combo agora traz sinergias de peças calculadas automaticamente e ranking de matchups – tanto contra outros beys quanto agrupados por tipagem. Assim fica simples identificar onde cada bey performa melhor ou precisa de reforços.
+- As tabelas exibem o número de batalhas consideradas, winrate e destaques visuais para vitórias/derrotas por arquétipo.
+
+### Simulador de batalha
+
+- Nova rota **/simulator** (menu “Simular batalha”) com um laboratório para prever o resultado entre dois beys usando apenas dados históricos.
+- A simulação só é liberada se cada peça tiver ≥20 batalhas registradas e se existir pelo menos um par de peças com ≥10 batalhas juntas, garantindo previsões responsáveis.
+- O painel mostra confiança, diferença estimada, cartões com scores de partes/pares e detalhamento das amostras usadas para cada bey.
+
 ## Estrutura do repositório
 
 ```
@@ -59,6 +70,9 @@ npm start
 - **Import JSON:** `POST /api/backup/json` (sobrescreve tudo).
 - **CSV:** `GET /api/backup/parts.csv` e `GET /api/backup/battles.csv`.
 - **Seed demográfico:** `npm run setup:db` sempre remove tudo (deleteMany em todas as tabelas) antes de recriar 6 peças, 2 arenas, 3 combos e 3 batalhas — portanto pode ser executado repetidamente sem lixo.
+- **Linha Custom X expandida:** o seed agora inclui mais 16 blades CX (Antler, Arc, Blast, Brave, Brush, Dark, Eclipse, Fang, Flame, Flare, Fort, Hunt, Might, Reaper, Volt e Wriggle), todas já configuradas para aceitar Assist Blade e Lock Chip obrigatórios.
+- **Lock Chips reforçados:** adicionamos 19 lock chips CX (Valkyrie, Emperor, Cerberus, Dran, Fox, Hells, Hornet, Kraken, Leon, Pegasus, Perseus, Phoenix, Rhino, Sol, Stag, Whale, Wolf e Wizard) com os pesos informados para cobrir qualquer archetype requerido pelos novos combos.
+- **Assist lineup completo:** o seed também traz 13 novas Assist Blades CX (Assault, Bumper, Charge, Dual, Free, Heavy, Jaggy, Massive, Round, Slash, Turn, Wheel e Zillion), todas configuradas para coexistir com os dados já existentes.
 
 ## API e payloads de exemplo
 

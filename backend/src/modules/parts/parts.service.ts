@@ -27,10 +27,20 @@ export async function listParts(filters: PartFilters = {}) {
     archetype,
     ...(search
       ? {
-          name: {
-            contains: search,
-            mode: 'insensitive' as const,
-          },
+          OR: [
+            {
+              name: {
+                contains: search,
+                mode: 'insensitive' as const,
+              },
+            },
+            {
+              tags: {
+                contains: search,
+                mode: 'insensitive' as const,
+              },
+            },
+          ],
         }
       : {}),
   };

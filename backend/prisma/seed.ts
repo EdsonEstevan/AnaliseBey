@@ -54,6 +54,13 @@ type AssistSpec = {
   notes?: string;
 };
 
+type LockChipSpec = {
+  name: string;
+  archetype: Archetype;
+  weight?: number;
+  notes?: string;
+};
+
 type RatchetBitSpec = {
   name: string;
   line: Extract<LineCode, 'CX'>;
@@ -152,6 +159,22 @@ async function main() {
     { name: 'Tempest Dragon', archetype: 'ATTACK', weight: 38.5, line: 'CX' },
     { name: 'Aegis Hydra', archetype: 'DEFENSE', weight: 37.1, line: 'CX' },
     { name: 'Mirage Crane', archetype: 'STAMINA', weight: 36.4, line: 'CX' },
+    { name: 'Antler', archetype: 'DEFENSE', weight: 29.1, line: 'CX' },
+    { name: 'Arc', archetype: 'BALANCE', weight: 29.2, line: 'CX' },
+    { name: 'Blast', archetype: 'ATTACK', weight: 32.8, line: 'CX' },
+    { name: 'Brave', archetype: 'ATTACK', weight: 31.2, line: 'CX' },
+    { name: 'Brush', archetype: 'STAMINA', weight: 30.3, line: 'CX' },
+    { name: 'Dark', archetype: 'BALANCE', weight: 30.3, line: 'CX' },
+    { name: 'Eclipse', archetype: 'BALANCE', weight: 32.3, line: 'CX' },
+    { name: 'Fang', archetype: 'ATTACK', weight: 30.4, line: 'CX' },
+    { name: 'Flame', archetype: 'ATTACK', weight: 28.5, line: 'CX' },
+    { name: 'Flare', archetype: 'ATTACK', weight: 31.1, line: 'CX' },
+    { name: 'Fort', archetype: 'DEFENSE', weight: 29.0, line: 'CX' },
+    { name: 'Hunt', archetype: 'ATTACK', weight: 31.6, line: 'CX' },
+    { name: 'Might', archetype: 'BALANCE', weight: 33.1, line: 'CX' },
+    { name: 'Reaper', archetype: 'ATTACK', weight: 29.0, line: 'CX' },
+    { name: 'Volt', archetype: 'ATTACK', weight: 31.0, line: 'CX' },
+    { name: 'Wriggle', archetype: 'STAMINA', weight: 29.3, line: 'CX' },
   ];
 
   const bitSpecs: BitSpec[] = [
@@ -198,6 +221,43 @@ async function main() {
     { name: 'Edge Boost Assist', line: 'CX', archetype: 'ATTACK', weight: 5.8 },
     { name: 'Shell Guard Assist', line: 'CX', archetype: 'DEFENSE', weight: 5.6 },
     { name: 'Horizon Glide Assist', line: 'CX', archetype: 'STAMINA', weight: 5.4 },
+    { name: 'Assist Blade – Assault', line: 'CX', archetype: 'ATTACK', weight: 5.0 },
+    { name: 'Assist Blade – Bumper', line: 'CX', archetype: 'DEFENSE', weight: 6.0 },
+    { name: 'Assist Blade – Charge', line: 'CX', archetype: 'BALANCE', weight: 5.4 },
+    { name: 'Assist Blade – Dual', line: 'CX', archetype: 'BALANCE', weight: 5.5 },
+    { name: 'Assist Blade – Free', line: 'CX', archetype: 'STAMINA', weight: 4.8 },
+    { name: 'Assist Blade – Heavy', line: 'CX', archetype: 'DEFENSE', weight: 7.8 },
+    { name: 'Assist Blade – Jaggy', line: 'CX', archetype: 'ATTACK', weight: 4.9 },
+    { name: 'Assist Blade – Massive', line: 'CX', archetype: 'DEFENSE', weight: 5.34 },
+    { name: 'Assist Blade – Round', line: 'CX', archetype: 'BALANCE', weight: 5.9 },
+    { name: 'Assist Blade – Slash', line: 'CX', archetype: 'ATTACK', weight: 4.7 },
+    { name: 'Assist Blade – Turn', line: 'CX', archetype: 'BALANCE', weight: 5.6 },
+    { name: 'Assist Blade – Wheel', line: 'CX', archetype: 'STAMINA', weight: 7.2 },
+    { name: 'Assist Blade – Zillion', line: 'CX', archetype: 'BALANCE', weight: 6.7 },
+  ];
+
+  const lockChipSpecs: LockChipSpec[] = [
+    { name: 'Nova Lock Chip', archetype: 'ATTACK', weight: 3.2 },
+    { name: 'Aegis Core Lock Chip', archetype: 'DEFENSE', weight: 3.4 },
+    { name: 'Mirage Anchor Lock Chip', archetype: 'STAMINA', weight: 3.0 },
+    { name: 'Valkyrie Lock Chip', archetype: 'ATTACK', weight: 5.6 },
+    { name: 'Emperor Lock Chip', archetype: 'DEFENSE', weight: 4.7 },
+    { name: 'Cerberus Lock Chip', archetype: 'DEFENSE', weight: 1.7 },
+    { name: 'Dran Lock Chip', archetype: 'ATTACK', weight: 1.7 },
+    { name: 'Fox Lock Chip', archetype: 'BALANCE', weight: 1.7 },
+    { name: 'Hells Lock Chip', archetype: 'BALANCE', weight: 1.7 },
+    { name: 'Hornet Lock Chip', archetype: 'ATTACK', weight: 1.7 },
+    { name: 'Kraken Lock Chip', archetype: 'DEFENSE', weight: 1.7 },
+    { name: 'Leon Lock Chip', archetype: 'BALANCE', weight: 1.7 },
+    { name: 'Pegasus Lock Chip', archetype: 'ATTACK', weight: 1.7 },
+    { name: 'Perseus Lock Chip', archetype: 'BALANCE', weight: 1.7 },
+    { name: 'Phoenix Lock Chip', archetype: 'ATTACK', weight: 1.7 },
+    { name: 'Rhino Lock Chip', archetype: 'DEFENSE', weight: 1.7 },
+    { name: 'Sol Lock Chip', archetype: 'STAMINA', weight: 1.7 },
+    { name: 'Stag Lock Chip', archetype: 'ATTACK', weight: 1.7 },
+    { name: 'Whale Lock Chip', archetype: 'STAMINA', weight: 1.7 },
+    { name: 'Wolf Lock Chip', archetype: 'BALANCE', weight: 1.7 },
+    { name: 'Wizard Lock Chip', archetype: 'STAMINA', weight: 1.7 },
   ];
 
   const ratchetSpecs: RatchetSpec[] = [
@@ -287,6 +347,17 @@ async function main() {
       notes: spec.notes,
       imageUrl: placeholder(`Assist ${spec.name}`),
     })),
+    ...lockChipSpecs.map((spec) => ({
+      name: spec.name,
+      type: 'LOCK_CHIP' as PartType,
+      archetype: spec.archetype,
+      variant: 'CX',
+      subArchetype: 'Lock Chip CX',
+      weight: spec.weight,
+      tags: ['CX', 'LOCK_CHIP'],
+      notes: spec.notes,
+      imageUrl: placeholder(`Lock Chip ${spec.name}`),
+    })),
     ...ratchetBitSpecs.map((spec) => ({
       name: spec.name,
       type: 'RATCHET_BIT' as PartType,
@@ -368,6 +439,7 @@ async function main() {
         ratchetId: parts['F-4-60'],
         bitId: parts['F-4-60'],
         assistBladeId: parts['Edge Boost Assist'],
+            lockChipId: parts['Nova Lock Chip'],
         archetype: 'ATTACK',
         subArchetype: 'CX Blitz',
         tags: toJsonArray(['CX', 'integrado']),
@@ -381,6 +453,7 @@ async function main() {
         ratchetId: parts['N-5-70'],
         bitId: parts['N-5-70'],
         assistBladeId: parts['Horizon Glide Assist'],
+            lockChipId: parts['Mirage Anchor Lock Chip'],
         archetype: 'STAMINA',
         subArchetype: 'CX Sustain',
         tags: toJsonArray(['CX']),
