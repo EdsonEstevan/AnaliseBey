@@ -19,6 +19,14 @@ const optionalImageUrl = z
     return val;
   });
 
+const optionalId = z
+  .union([z.string().min(1), z.literal(''), z.null()])
+  .optional()
+  .transform((val) => {
+    if (val === undefined || val === '') return undefined;
+    return val;
+  });
+
 const enumFilter = <T extends string>(values: readonly [T, ...T[]]) =>
   z
     .union([z.enum(values), z.literal('')])
@@ -32,6 +40,7 @@ export const comboBodySchema = z.object({
   bladeId: z.string().min(1),
   ratchetId: z.string().min(1),
   bitId: z.string().min(1),
+  assistBladeId: optionalId,
   tags: z.array(z.string()).optional(),
   notes: z.string().optional(),
   status: z.enum(statusValues).optional(),
