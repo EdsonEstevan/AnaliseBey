@@ -23,6 +23,7 @@ export type ComboPayload = {
   bladeId: string;
   ratchetId: string;
   bitId: string;
+  assistBladeId?: string | null;
   tags?: string[];
   notes?: string;
   status?: ComboStatus;
