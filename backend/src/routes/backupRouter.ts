@@ -101,7 +101,8 @@ backupRouter.post('/json', async (req, res) => {
   const payload = importSchema.parse(req.body);
   const modeParam = normalizeQueryValue(req.query.mode)?.toLowerCase();
   const mergeParam = normalizeQueryValue(req.query.merge)?.toLowerCase();
-  const appendMode = modeParam === 'append' || mergeParam === 'true';
+  const replaceMode = modeParam === 'replace' || mergeParam === 'false';
+  const appendMode = !replaceMode;
 
   await prisma.$transaction(async (tx) => {
     if (!appendMode) {
@@ -203,7 +204,7 @@ backupRouter.post('/json', async (req, res) => {
   });
 
   res.json({
-    message: appendMode ? 'Importação concluída (modo de anexação)' : 'Importação concluída',
+    message: appendMode ? 'Importação concluída (mesclagem)' : 'Importação concluída (substituição total)',
     mode: appendMode ? 'append' : 'replace',
     counts: {
       parts: payload.parts.length,

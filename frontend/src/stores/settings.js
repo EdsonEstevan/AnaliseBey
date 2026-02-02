@@ -13,7 +13,7 @@ export const useSettingsStore = defineStore('settings', {
       return data;
     },
     async importBackup(payload) {
-      await api.post('/backup/json', payload);
+      await api.post('/backup/json', payload, { params: { mode: 'append' } });
     },
   },
 });

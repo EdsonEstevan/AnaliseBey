@@ -34,7 +34,7 @@
         <button class="btn" @click="handleImport">Importar</button>
         <button class="text-slate-400 text-sm" @click="importText = ''">Limpar</button>
       </div>
-      <p class="text-xs text-slate-500 mt-2">A importação substitui completamente os dados atuais.</p>
+      <p class="text-xs text-slate-500 mt-2">A importação agora <strong>apenas mescla</strong> novos dados; nada é apagado.</p>
     </section>
 
     <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
