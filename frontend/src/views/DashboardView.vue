@@ -18,6 +18,14 @@
           Visão geral
         </button>
         <button
+          type="button"
+          class="px-4 py-2 rounded-2xl text-sm font-semibold transition border"
+          :class="activeTab === 'bladers' ? 'bg-amber-500/20 border-amber-400/60 text-white' : 'border-slate-700 text-slate-300 hover:border-amber-400/40'"
+          @click="activeTab = 'bladers'"
+        >
+          Pilotos
+        </button>
+        <button
           v-for="tab in comboTabRenderList"
           :key="tab.id"
           type="button"
@@ -129,6 +137,48 @@
             <option value="DRAW">Empates</option>
           </select>
         </div>
+      </div>
+    </section>
+
+    <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+      <header class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-400">Análises visuais</p>
+          <h2 class="text-2xl font-semibold">Resumo gráfico</h2>
+          <p class="text-sm text-slate-500">Comportamento das últimas rodadas, distribuição de vitórias e eficiência por arquétipo.</p>
+        </div>
+      </header>
+      <div class="grid gap-6 lg:grid-cols-3">
+        <article class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-slate-400">Distribuição</p>
+            <h3 class="text-lg font-semibold">Tipos de vitória</h3>
+          </div>
+          <div class="min-h-[220px] flex items-center justify-center">
+            <Doughnut v-if="victoryDistributionChartData" :data="victoryDistributionChartData" :options="doughnutOptions" />
+            <p v-else class="text-sm text-slate-500">Sem dados suficientes para o gráfico.</p>
+          </div>
+        </article>
+        <article class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4 space-y-3 lg:col-span-1">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-slate-400">Ritmo</p>
+            <h3 class="text-lg font-semibold">Rodadas por dia</h3>
+          </div>
+          <div class="min-h-[220px] flex items-center justify-center">
+            <Line v-if="roundsTimelineChartData" :data="roundsTimelineChartData" :options="lineOptions" />
+            <p v-else class="text-sm text-slate-500">Registre batalhas para liberar esta linha do tempo.</p>
+          </div>
+        </article>
+        <article class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-slate-400">Arquétipos</p>
+            <h3 class="text-lg font-semibold">Winrate comparado</h3>
+          </div>
+          <div class="min-h-[220px] flex items-center justify-center">
+            <Bar v-if="archetypeWinrateChartData" :data="archetypeWinrateChartData" :options="barOptions" />
+            <p v-else class="text-sm text-slate-500">Precisamos de mais rodadas com arquétipos distintos.</p>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -305,9 +355,53 @@
           </li>
         </ul>
       </section>
+
+      <section class="bg-slate-900/60 rounded-2xl p-6 border border-slate-800">
+        <header class="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-slate-400">Relatório de sinergia</p>
+            <h3 class="text-xl font-semibold">Combinações que mais entregam</h3>
+            <p class="text-sm text-slate-500">Construído a partir de todas as rodadas filtradas envolvendo pares de peças.</p>
+          </div>
+        </header>
+        <div class="grid gap-6 lg:grid-cols-2">
+          <article class="p-4 border border-slate-800 rounded-2xl bg-slate-950/40 min-h-[260px] flex items-center justify-center">
+            <Bar v-if="globalSynergyChartData" :data="globalSynergyChartData" :options="barOptions" />
+            <p v-else class="text-sm text-slate-500">Registre mais batalhas para liberar o gráfico de sinergia global.</p>
+          </article>
+          <article class="p-4 border border-slate-800 rounded-2xl bg-slate-950/40">
+            <table class="w-full text-sm">
+              <thead class="text-left text-xs uppercase text-slate-400">
+                <tr>
+                  <th class="py-2">Par de peças</th>
+                  <th class="py-2">Rodadas</th>
+                  <th class="py-2">Winrate</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="entry in globalSynergyReport.slice(0, 6)"
+                  :key="entry.id"
+                  class="border-t border-slate-800/60"
+                >
+                  <td class="py-3">
+                    <p class="font-semibold">{{ entry.name }}</p>
+                    <p class="text-xs text-slate-500">{{ entry.label }}</p>
+                  </td>
+                  <td>{{ entry.total }}</td>
+                  <td>{{ entry.winrate }}%</td>
+                </tr>
+                <tr v-if="!globalSynergyReport.length">
+                  <td colspan="3" class="py-4 text-center text-slate-500">Sem combinações suficientes no filtro atual.</td>
+                </tr>
+              </tbody>
+            </table>
+          </article>
+        </div>
+      </section>
     </template>
 
-    <template v-else>
+    <template v-else-if="isComboTabActive">
       <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-6">
         <header class="flex flex-wrap items-center justify-between gap-6">
           <div class="space-y-3">
@@ -568,21 +662,143 @@
         </section>
       </div>
     </template>
+
+    <template v-else>
+      <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-6">
+        <header class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-slate-400">Pilotos</p>
+            <h2 class="text-3xl font-semibold">Desempenho por blader</h2>
+            <p class="text-sm text-slate-500">Acompanhe winrate, ritmo e decks vinculados de cada piloto registrado.</p>
+          </div>
+        </header>
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <article v-for="card in bladerSummaryCards" :key="card.label" class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4">
+            <p class="text-xs uppercase tracking-wide text-slate-400">{{ card.label }}</p>
+            <p class="text-3xl font-semibold">{{ card.value }}</p>
+            <p class="text-xs text-slate-500">{{ card.helper }}</p>
+          </article>
+          <article v-if="!bladerSummaryCards.length" class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4">
+            <p class="text-xs uppercase tracking-wide text-slate-400">Pilotos</p>
+            <p class="text-sm text-slate-500">Cadastre bladers e registre batalhas para liberar o painel.</p>
+          </article>
+        </section>
+        <div class="grid gap-6 lg:grid-cols-2">
+          <article class="p-4 border border-slate-800 rounded-2xl bg-slate-950/40 min-h-[280px] flex items-center justify-center">
+            <Bar v-if="bladerPerformanceChartData" :data="bladerPerformanceChartData" :options="barOptions" />
+            <p v-else class="text-sm text-slate-500">Nenhum piloto com rodadas suficientes.</p>
+          </article>
+          <article class="p-4 border border-slate-800 rounded-2xl bg-slate-950/40 min-h-[280px] flex items-center justify-center">
+            <Doughnut v-if="bladerCountryChartData" :data="bladerCountryChartData" :options="doughnutOptions" />
+            <p v-else class="text-sm text-slate-500">Sem distribuição geográfica registrada.</p>
+          </article>
+        </div>
+        <section class="grid gap-6 lg:grid-cols-2">
+          <article class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4 overflow-x-auto">
+            <header class="mb-4">
+              <p class="text-xs uppercase tracking-wide text-slate-400">Leaderboard</p>
+              <h3 class="text-xl font-semibold">Top winrate</h3>
+            </header>
+            <table class="w-full text-sm">
+              <thead class="text-left text-xs uppercase text-slate-400">
+                <tr>
+                  <th class="py-2">Blader</th>
+                  <th class="py-2">Rodadas</th>
+                  <th class="py-2">Vitórias</th>
+                  <th class="py-2">Winrate</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="blader in bladersLeaderboard.slice(0, 6)"
+                  :key="blader.id"
+                  class="border-t border-slate-800/60"
+                >
+                  <td class="py-3">
+                    <p class="font-semibold">{{ blader.name }}</p>
+                    <p class="text-xs text-slate-500">{{ blader.team || 'Sem equipe' }} · {{ blader.country }}</p>
+                  </td>
+                  <td>{{ blader.stats.total }}</td>
+                  <td>{{ blader.stats.wins }}</td>
+                  <td>{{ blader.stats.winrate }}%</td>
+                </tr>
+                <tr v-if="!bladersLeaderboard.length">
+                  <td colspan="4" class="py-4 text-center text-slate-500">Nenhum piloto com batalhas registradas.</td>
+                </tr>
+              </tbody>
+            </table>
+          </article>
+          <article class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4">
+            <header class="mb-4">
+              <p class="text-xs uppercase tracking-wide text-slate-400">Atividade recente</p>
+              <h3 class="text-xl font-semibold">Últimas batalhas registradas</h3>
+            </header>
+            <ul class="space-y-4 max-h-[320px] overflow-y-auto pr-2">
+              <li
+                v-for="blader in bladerActivityFeed"
+                :key="blader.id"
+                class="p-4 border border-slate-800 rounded-xl bg-slate-900/70"
+              >
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="font-semibold">{{ blader.name }}</p>
+                    <p class="text-xs text-slate-500">{{ blader.team || 'Equipe desconhecida' }}</p>
+                  </div>
+                  <span class="text-xs text-slate-400">{{ blader.lastBattleAt ? formatDate(blader.lastBattleAt) : 'Sem registro' }}</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">
+                  {{ blader.stats.wins }} vitórias · {{ blader.stats.losses }} derrotas · {{ blader.stats.draws }} empates
+                </p>
+                <div class="flex flex-wrap gap-2 mt-2 text-xs text-slate-400">
+                  <span
+                    v-for="combo in blader.combosUsed"
+                    :key="combo.id"
+                    class="px-2 py-1 rounded-lg border border-slate-800"
+                  >
+                    {{ combo.name }} · {{ combo.count }}x
+                  </span>
+                  <span v-if="!blader.combosUsed.length" class="text-slate-500">Sem combos frequentes</span>
+                </div>
+              </li>
+              <li v-if="!bladerActivityFeed.length" class="text-center text-slate-500 text-sm">
+                Nenhuma batalha registrada recentemente para os pilotos.
+              </li>
+            </ul>
+          </article>
+        </section>
+      </section>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
+import { Bar, Doughnut, Line } from 'vue-chartjs';
+import {
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Tooltip,
+} from 'chart.js';
 
 import { usePartsStore } from '../stores/parts';
 import { useCombosStore } from '../stores/combos';
 import { useBattlesStore } from '../stores/battles';
+import { useBladersStore } from '../stores/bladers';
 import { formatDate } from '../utils/format';
+
+Chart.register(ArcElement, BarElement, CategoryScale, Legend, LinearScale, LineElement, PointElement, Tooltip);
 
 const partsStore = usePartsStore();
 const combosStore = useCombosStore();
 const battlesStore = useBattlesStore();
+const bladersStore = useBladersStore();
 
 const TAB_STORAGE_KEY = 'dashboard:comboTabs';
 
@@ -612,6 +828,71 @@ const rangePresets = [
   { label: 'Tudo', value: 'all' },
 ];
 
+const chartPalette = ['#22c55e', '#a855f7', '#f97316', '#38bdf8', '#f43f5e', '#fde047', '#c084fc'];
+const accentPalette = ['#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#2dd4bf', '#c4b5fd'];
+const shortDateFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'short', day: 'numeric' });
+
+const doughnutOptions = {
+  responsive: true,
+  plugins: {
+    legend: {
+      position: 'bottom',
+      labels: {
+        color: '#94a3b8',
+        usePointStyle: true,
+      },
+    },
+    tooltip: {
+      callbacks: {
+        label(context) {
+          const label = context.label ?? '';
+          const value = context.parsed ?? 0;
+          return `${label}: ${value}`;
+        },
+      },
+    },
+  },
+};
+
+const barOptions = {
+  responsive: true,
+  scales: {
+    x: {
+      ticks: { color: '#94a3b8' },
+      grid: { color: '#1e293b' },
+    },
+    y: {
+      ticks: { color: '#94a3b8', callback: (value) => `${value}%` },
+      grid: { color: '#1e293b' },
+      beginAtZero: true,
+      suggestedMax: 100,
+    },
+  },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        label(context) {
+          return `${context.parsed.y ?? context.parsed}% de winrate`;
+        },
+      },
+    },
+  },
+};
+
+const lineOptions = {
+  responsive: true,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+    y: {
+      ticks: { color: '#94a3b8' },
+      grid: { color: '#1e293b' },
+      beginAtZero: true,
+    },
+  },
+};
+
 onMounted(async () => {
   if (typeof window !== 'undefined') {
     const stored = window.localStorage.getItem(TAB_STORAGE_KEY);
@@ -630,6 +911,7 @@ onMounted(async () => {
     partsStore.fetchParts(),
     combosStore.fetchCombos(),
     battlesStore.fetchBattles({ limit: 250 }),
+    bladersStore.fetchBladers(),
   ]);
 });
 
@@ -682,6 +964,8 @@ const filteredRangeDays = computed(() => {
   const span = (Math.max(...timestamps) - Math.min(...timestamps)) / (1000 * 60 * 60 * 24);
   return Math.max(1, Math.ceil(span));
 });
+
+const roundsDataset = computed(() => filteredBattles.value.flatMap((battle) => roundsFromBattle(battle)));
 
 const combosActive = computed(() => combosStore.items.filter((c) => c.status === 'ACTIVE').length);
 const partsTotal = computed(() => partsStore.items.length);
@@ -806,12 +1090,14 @@ watch(
     if (!comboTabs.value.length && ids.length) {
       comboTabs.value = ids.slice(0, 3);
     }
-    if (activeTab.value !== 'all' && !idSet.has(activeTab.value)) {
+    if (activeTab.value !== 'all' && activeTab.value !== 'bladers' && !idSet.has(activeTab.value)) {
       activeTab.value = comboTabs.value[0] ?? 'all';
     }
   },
   { immediate: true },
 );
+
+const isComboTabActive = computed(() => activeTab.value !== 'all' && activeTab.value !== 'bladers');
 
 function toggleTabPicker() {
   tabPicker.open = !tabPicker.open;
@@ -935,6 +1221,77 @@ const latestRounds = computed(() =>
     .slice(0, 6),
 );
 
+const victoryDistributionChartData = computed(() => {
+  if (!victoryDistribution.value.length) return null;
+  return {
+    labels: victoryDistribution.value.map((item) => item.label),
+    datasets: [
+      {
+        data: victoryDistribution.value.map((item) => item.count),
+        backgroundColor: chartPalette.slice(0, victoryDistribution.value.length),
+        borderWidth: 0,
+      },
+    ],
+  };
+});
+
+const roundsTimelineSeries = computed(() => {
+  const bucketDays = Math.min(filteredRangeDays.value || 30, 90);
+  const map = new Map();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  for (let i = bucketDays - 1; i >= 0; i -= 1) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const iso = date.toISOString().slice(0, 10);
+    map.set(iso, { label: shortDateFormatter.format(date), count: 0 });
+  }
+  filteredBattles.value.forEach((battle) => {
+    if (!battle.occurredAt) return;
+    const date = new Date(battle.occurredAt);
+    date.setHours(0, 0, 0, 0);
+    const iso = date.toISOString().slice(0, 10);
+    if (!map.has(iso)) {
+      map.set(iso, { label: shortDateFormatter.format(date), count: 0 });
+    }
+    const current = map.get(iso);
+    current.count += 1;
+  });
+  return [...map.entries()]
+    .sort((a, b) => (a[0] > b[0] ? 1 : -1))
+    .map(([, value]) => value);
+});
+
+const roundsTimelineChartData = computed(() => {
+  if (!roundsTimelineSeries.value.length) return null;
+  return {
+    labels: roundsTimelineSeries.value.map((item) => item.label),
+    datasets: [
+      {
+        data: roundsTimelineSeries.value.map((item) => item.count),
+        borderColor: '#38bdf8',
+        backgroundColor: 'rgba(56, 189, 248, 0.15)',
+        fill: true,
+        tension: 0.4,
+      },
+    ],
+  };
+});
+
+const archetypeWinrateChartData = computed(() => {
+  const dataset = archetypePerformance.value.slice(0, 6);
+  if (!dataset.length) return null;
+  return {
+    labels: dataset.map((item) => item.archetype),
+    datasets: [
+      {
+        data: dataset.map((item) => Number(item.winrate)),
+        backgroundColor: accentPalette.slice(0, dataset.length),
+      },
+    ],
+  };
+});
+
 
 
 const statsCards = computed(() => [
@@ -1029,8 +1386,6 @@ function roundsFromBattle(battle) {
       type: 'ROUND',
     }));
 }
-
-const roundsDataset = computed(() => filteredBattles.value.flatMap((battle) => roundsFromBattle(battle)));
 
 function aggregateRoundsForComboIds(comboIdsSet, sourceRounds = roundsDataset.value) {
   const stats = { total: 0, wins: 0, losses: 0, draws: 0 };
@@ -1254,6 +1609,67 @@ const comboSynergyOverview = computed(() => {
     .sort((a, b) => Number(b.winrate) - Number(a.winrate));
 });
 
+const globalSynergyReport = computed(() => {
+  const map = new Map();
+  combosStore.items.forEach((combo) => {
+    const stats = comboStatsIndex.value.get(combo.id);
+    if (!stats || !stats.total) return;
+    const pairs = [
+      {
+        label: 'Blade + Ratchet',
+        ids: [combo.bladeId, combo.ratchetId],
+        name: `${combo.blade?.name || 'Blade'} + ${combo.ratchet?.name || 'Ratchet'}`,
+      },
+      {
+        label: 'Blade + Bit',
+        ids: [combo.bladeId, combo.bitId],
+        name: `${combo.blade?.name || 'Blade'} + ${combo.bit?.name || 'Bit'}`,
+      },
+      {
+        label: 'Ratchet + Bit',
+        ids: [combo.ratchetId, combo.bitId],
+        name: `${combo.ratchet?.name || 'Ratchet'} + ${combo.bit?.name || 'Bit'}`,
+      },
+    ];
+    pairs
+      .filter((pair) => pair.ids.every(Boolean))
+      .forEach((pair) => {
+        const key = `${pair.label}:${pair.ids.slice().sort().join('-')}`;
+        const entry = map.get(key) ?? {
+          id: key,
+          label: pair.label,
+          name: pair.name,
+          total: 0,
+          wins: 0,
+        };
+        entry.total += stats.total;
+        entry.wins += stats.wins;
+        map.set(key, entry);
+      });
+  });
+  return [...map.values()]
+    .map((entry) => ({
+      ...entry,
+      winrate: entry.total ? Number(((entry.wins / entry.total) * 100).toFixed(1)) : 0,
+    }))
+    .filter((entry) => entry.total >= 3)
+    .sort((a, b) => b.winrate - a.winrate);
+});
+
+const globalSynergyChartData = computed(() => {
+  const top = globalSynergyReport.value.slice(0, 5);
+  if (!top.length) return null;
+  return {
+    labels: top.map((entry) => entry.name),
+    datasets: [
+      {
+        data: top.map((entry) => entry.winrate),
+        backgroundColor: accentPalette.slice(0, top.length),
+      },
+    ],
+  };
+});
+
 const comboSummaryCards = computed(() => {
   if (!comboFocusStats.value) return [];
   const stats = comboFocusStats.value;
@@ -1296,5 +1712,119 @@ const comboRecentRounds = computed(() =>
       return bTime - aTime;
     })
     .slice(0, 8),
+);
+
+const bladersLeaderboard = computed(() =>
+  bladersStore.items
+    .map((blader) => {
+      const stats = blader.stats ?? {};
+      return {
+        id: blader.id,
+        name: blader.name,
+        nickname: blader.nickname,
+        team: blader.team,
+        country: blader.country || 'Indefinido',
+        deckCount: blader.deckCount ?? (blader.decks?.length ?? 0),
+        combosUsed: blader.combosUsed ?? [],
+        lastBattleAt: blader.lastBattleAt ? new Date(blader.lastBattleAt).getTime() : null,
+        stats: {
+          total: stats.total ?? 0,
+          wins: stats.wins ?? 0,
+          losses: stats.losses ?? 0,
+          draws: stats.draws ?? 0,
+          winrate: stats.winrate ?? 0,
+        },
+      };
+    })
+    .filter((entry) => entry.stats.total > 0)
+    .sort((a, b) => (b.stats.winrate === a.stats.winrate ? b.stats.total - a.stats.total : b.stats.winrate - a.stats.winrate)),
+);
+
+const bladerAggregateStats = computed(() =>
+  bladersLeaderboard.value.reduce(
+    (acc, entry) => {
+      acc.totalRounds += entry.stats.total;
+      acc.totalWins += entry.stats.wins;
+      acc.totalPilots += 1;
+      acc.winrateSum += entry.stats.winrate;
+      return acc;
+    },
+    { totalRounds: 0, totalWins: 0, totalPilots: 0, winrateSum: 0 },
+  ),
+);
+
+const bladerSummaryCards = computed(() => {
+  const aggregate = bladerAggregateStats.value;
+  const totalPilots = aggregate.totalPilots || bladersStore.items.length || 1;
+  const totalDecks = bladersStore.items.reduce((sum, blader) => sum + (blader.deckCount ?? (blader.decks?.length ?? 0)), 0);
+  return [
+    {
+      label: 'Pilotos ativos',
+      value: aggregate.totalPilots,
+      helper: `${bladersStore.items.length} cadastrados`,
+    },
+    {
+      label: 'Rodadas acumuladas',
+      value: aggregate.totalRounds,
+      helper: `${aggregate.totalPilots ? (aggregate.totalRounds / aggregate.totalPilots).toFixed(1) : 0} por piloto`,
+    },
+    {
+      label: 'Winrate médio',
+      value: `${aggregate.totalPilots ? (aggregate.winrateSum / aggregate.totalPilots).toFixed(1) : '0.0'}%`,
+      helper: `${aggregate.totalWins} vitórias registradas`,
+    },
+    {
+      label: 'Decks vinculados',
+      value: totalDecks,
+      helper: 'Com pilotos associados',
+    },
+  ];
+});
+
+const bladerPerformanceChartData = computed(() => {
+  const top = bladersLeaderboard.value.slice(0, 6);
+  if (!top.length) return null;
+  return {
+    labels: top.map((entry) => entry.name),
+    datasets: [
+      {
+        data: top.map((entry) => entry.stats.winrate),
+        backgroundColor: accentPalette.slice(0, top.length),
+      },
+    ],
+  };
+});
+
+const bladerCountryBreakdown = computed(() => {
+  const map = new Map();
+  bladersStore.items.forEach((blader) => {
+    const label = blader.country?.trim() || 'Indefinido';
+    const stats = blader.stats ?? {};
+    const entry = map.get(label) ?? { label, total: 0 };
+    entry.total += stats.total ?? 0;
+    map.set(label, entry);
+  });
+  return [...map.values()].filter((entry) => entry.total > 0).sort((a, b) => b.total - a.total).slice(0, 6);
+});
+
+const bladerCountryChartData = computed(() => {
+  if (!bladerCountryBreakdown.value.length) return null;
+  return {
+    labels: bladerCountryBreakdown.value.map((entry) => entry.label),
+    datasets: [
+      {
+        data: bladerCountryBreakdown.value.map((entry) => entry.total),
+        backgroundColor: chartPalette.slice(0, bladerCountryBreakdown.value.length),
+        borderWidth: 0,
+      },
+    ],
+  };
+});
+
+const bladerActivityFeed = computed(() =>
+  bladersLeaderboard.value
+    .filter((entry) => entry.lastBattleAt)
+    .sort((a, b) => (b.lastBattleAt ?? 0) - (a.lastBattleAt ?? 0))
+    .slice(0, 6),
 );
 </script>
