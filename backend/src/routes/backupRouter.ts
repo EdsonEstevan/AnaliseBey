@@ -67,6 +67,13 @@ const importSchema = z.object({
     .default([]),
 });
 
+const normalizeQueryValue = (value: unknown): string | undefined => {
+  if (Array.isArray(value)) {
+    return typeof value[0] === 'string' ? value[0] : undefined;
+  }
+  return typeof value === 'string' ? value : undefined;
+};
+
 backupRouter.get('/json', async (_req, res) => {
   const [parts, arenas, combos, battles] = await Promise.all([
     prisma.part.findMany(),
@@ -92,78 +99,112 @@ backupRouter.get('/json', async (_req, res) => {
 
 backupRouter.post('/json', async (req, res) => {
   const payload = importSchema.parse(req.body);
+  const modeParam = normalizeQueryValue(req.query.mode)?.toLowerCase();
+  const mergeParam = normalizeQueryValue(req.query.merge)?.toLowerCase();
+  const appendMode = modeParam === 'append' || mergeParam === 'true';
 
   await prisma.$transaction(async (tx) => {
-    await tx.battle.deleteMany();
-    await tx.combo.deleteMany();
-    await tx.arena.deleteMany();
-    await tx.part.deleteMany();
+    if (!appendMode) {
+      await tx.battle.deleteMany();
+      await tx.combo.deleteMany();
+      await tx.arena.deleteMany();
+      await tx.part.deleteMany();
+    }
 
     for (const part of payload.parts) {
-      await tx.part.create({
-        data: {
-          id: part.id,
-          name: part.name,
-          type: part.type as any,
-          archetype: part.archetype as any,
-          variant: part.variant,
-          weight: part.weight,
-          tags: toJsonArray(part.tags),
-          notes: part.notes,
-          archived: part.archived ?? false,
-        },
-      });
+      const data = {
+        id: part.id,
+        name: part.name,
+        type: part.type as any,
+        archetype: part.archetype as any,
+        variant: part.variant,
+        weight: part.weight,
+        tags: toJsonArray(part.tags),
+        notes: part.notes,
+        archived: part.archived ?? false,
+      };
+      if (appendMode && part.id) {
+        await tx.part.upsert({
+          where: { id: part.id },
+          update: {},
+          create: data,
+        });
+      } else {
+        await tx.part.create({ data });
+      }
     }
 
     for (const arena of payload.arenas) {
-      await tx.arena.create({
-        data: {
-          id: arena.id,
-          name: arena.name,
-          model: arena.model,
-          tags: toJsonArray(arena.tags),
-          notes: arena.notes,
-        },
-      });
+      const data = {
+        id: arena.id,
+        name: arena.name,
+        model: arena.model,
+        tags: toJsonArray(arena.tags),
+        notes: arena.notes,
+      };
+      if (appendMode && arena.id) {
+        await tx.arena.upsert({
+          where: { id: arena.id },
+          update: {},
+          create: data,
+        });
+      } else {
+        await tx.arena.create({ data });
+      }
     }
 
     for (const combo of payload.combos) {
-      await tx.combo.create({
-        data: {
-          id: combo.id,
-          name: combo.name,
-          bladeId: combo.bladeId,
-          ratchetId: combo.ratchetId,
-          bitId: combo.bitId,
-          assistBladeId: combo.assistBladeId,
-          lockChipId: combo.lockChipId,
-          archetype: combo.archetype as any,
-          tags: toJsonArray(combo.tags),
-          notes: combo.notes,
-          status: combo.status as any,
-        },
-      });
+      const data = {
+        id: combo.id,
+        name: combo.name,
+        bladeId: combo.bladeId,
+        ratchetId: combo.ratchetId,
+        bitId: combo.bitId,
+        assistBladeId: combo.assistBladeId,
+        lockChipId: combo.lockChipId,
+        archetype: combo.archetype as any,
+        tags: toJsonArray(combo.tags),
+        notes: combo.notes,
+        status: combo.status as any,
+      };
+      if (appendMode && combo.id) {
+        await tx.combo.upsert({
+          where: { id: combo.id },
+          update: {},
+          create: data,
+        });
+      } else {
+        await tx.combo.create({ data });
+      }
     }
 
     for (const battle of payload.battles) {
-      await tx.battle.create({
-        data: {
-          id: battle.id,
-          comboAId: battle.comboAId,
-          comboBId: battle.comboBId,
-          result: battle.result as any,
-          score: battle.score,
-          victoryType: battle.victoryType,
-          arenaId: battle.arenaId,
-          notes: battle.notes,
-          occurredAt: battle.occurredAt ? new Date(battle.occurredAt) : undefined,
-        },
-      });
+      const data = {
+        id: battle.id,
+        comboAId: battle.comboAId,
+        comboBId: battle.comboBId,
+        result: battle.result as any,
+        score: battle.score,
+        victoryType: battle.victoryType,
+        arenaId: battle.arenaId,
+        notes: battle.notes,
+        occurredAt: battle.occurredAt ? new Date(battle.occurredAt) : undefined,
+      };
+      if (appendMode && battle.id) {
+        await tx.battle.upsert({
+          where: { id: battle.id },
+          update: {},
+          create: data,
+        });
+      } else {
+        await tx.battle.create({ data });
+      }
     }
   });
 
   res.json({
-    message: 'Importação concluída',
+    message: appendMode ? 'Importação concluída (modo de anexação)' : 'Importação concluída',
+    mode: appendMode ? 'append' : 'replace',
     counts: {
       parts: payload.parts.length,
       arenas: payload.arenas.length,

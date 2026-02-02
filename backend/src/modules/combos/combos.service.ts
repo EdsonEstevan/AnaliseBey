@@ -56,7 +56,14 @@ async function ensurePartMatchesType(partId: string, expected: PartType | PartTy
 }
 
 function isCxVariant(part: Part) {
-  return (part.variant ?? '').toUpperCase().includes('CX');
+  const variantLabel = (part.variant ?? '').toUpperCase();
+  if (variantLabel.includes('CX')) {
+    return true;
+  }
+  const tagList = ensureStringArray(part.tags as unknown).map((tag) =>
+    typeof tag === 'string' ? tag.toUpperCase() : '',
+  );
+  return tagList.some((tag) => tag.includes('CX'));
 }
 
 function ensureAssistCompatibility(blade: Part, assist?: Part | null) {

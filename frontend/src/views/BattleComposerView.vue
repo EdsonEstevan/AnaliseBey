@@ -776,7 +776,13 @@ function builderBlade(slot) {
 }
 
 function isCxPart(part) {
-  return Boolean(part?.variant?.toUpperCase().includes('CX'));
+  if (!part) return false;
+  const variantLabel = (part.variant ?? '').toString().toUpperCase();
+  if (variantLabel.includes('CX')) {
+    return true;
+  }
+  const tags = Array.isArray(part.tags) ? part.tags : [];
+  return tags.some((tag) => typeof tag === 'string' && tag.toUpperCase().includes('CX'));
 }
 
 function assistEnabled(slot) {

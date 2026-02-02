@@ -271,7 +271,13 @@ const selectedAssist = computed(() => partsStore.catalog.find((p) => p.id === fo
 const selectedLockChip = computed(() => partsStore.catalog.find((p) => p.id === form.lockChipId));
 
 function isCxPart(part) {
-  return Boolean(part?.variant?.toUpperCase().includes('CX'));
+  if (!part) return false;
+  const variantLabel = (part.variant ?? '').toString().toUpperCase();
+  if (variantLabel.includes('CX')) {
+    return true;
+  }
+  const tags = Array.isArray(part.tags) ? part.tags : [];
+  return tags.some((tag) => typeof tag === 'string' && tag.toUpperCase().includes('CX'));
 }
 
 const assistEnabled = computed(() => isCxPart(selectedBlade.value));
