@@ -56,6 +56,7 @@ export type DeckPayload = {
   side?: 'A' | 'B' | 'FLEX';
   notes?: string;
   comboIds: string[];
+  maxTurns?: number;
   bladerId?: string | null;
 };
 
@@ -66,4 +67,27 @@ export type BladerPayload = {
   country?: string | null;
   team?: string | null;
   notes?: string | null;
+};
+
+export type AssistantContextPayload = {
+  route?: string;
+  surface?: string;
+  focus?: string;
+  summary?: Record<string, unknown>;
+};
+
+export type AssistantSessionPayload = {
+  sessionId?: string;
+  context?: AssistantContextPayload;
+};
+
+export type AssistantMessagePayload = AssistantSessionPayload & {
+  message: string;
+};
+
+export type AssistantMissionStatus = 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'BLOCKED';
+
+export type AssistantMissionUpdatePayload = {
+  status: AssistantMissionStatus;
+  note?: string;
 };

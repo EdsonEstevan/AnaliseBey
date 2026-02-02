@@ -28,6 +28,13 @@ Aplicação full-stack para catalogar peças, montar combos, registrar batalhas 
 - A simulação só é liberada se cada peça tiver ≥20 batalhas registradas e se existir pelo menos um par de peças com ≥10 batalhas juntas, garantindo previsões responsáveis.
 - O painel mostra confiança, diferença estimada, cartões com scores de partes/pares e detalhamento das amostras usadas para cada bey.
 
+### Assistente CX & séries 7-turnos
+
+- A interface agora conta com a **Assistente CX**, um painel flutuante que acompanha qualquer tela. Ela mantém o histórico das conversas, sugere missões e orienta upgrades exigidos pelos formatos até 7 turnos.
+- O Pinia store dedica persitência local da sessão (`lab-assistant-session`) e envia contexto de rota automaticamente; assim a assistente adapta as respostas conforme você abre o Dashboard, Composer ou decks.
+- O painel exibe o chat completo, teclado rápido e o quadro de missões com ações para concluir, bloquear ou retomar tasks — tudo sincronizado com os novos endpoints `/assistant/*` do backend.
+- Decks e Composer já conversam com a assistente via contexto, garantindo que ela monitore quando a série ainda está com menos de 7 slots e proponha metas como “Configurar série até 7 turnos”.
+
 ## Estrutura do repositório
 
 ```

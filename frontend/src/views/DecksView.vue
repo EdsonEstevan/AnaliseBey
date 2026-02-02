@@ -3,9 +3,9 @@
     <section class="bg-slate-900/70 border border-slate-800 rounded-2xl p-6">
       <header class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">3on3</p>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Séries configuráveis</p>
           <h1 class="text-3xl font-semibold">Decks rápidos</h1>
-          <p class="text-sm text-slate-400">Agrupe até 3 combos para preencher batalhas simultâneas em um clique.</p>
+          <p class="text-sm text-slate-400">Agrupe de 3 a 7 combos para fechar séries onde o vencedor precisa chegar a 4 pontos.</p>
         </div>
         <div class="flex items-center gap-2 text-xs text-slate-400">
           <span class="px-3 py-1 rounded-full border border-slate-700">{{ decksStore.items.length }} decks salvos</span>
@@ -29,9 +29,23 @@
             <span class="text-slate-300">Notas</span>
             <textarea v-model="form.notes" class="deck-input mt-1" rows="2" placeholder="estratégias, prioridade" />
           </label>
-          <div class="grid gap-4 sm:grid-cols-3">
-            <div v-for="slot in 3" :key="slot" class="space-y-2">
-              <p class="text-xs uppercase tracking-wider text-slate-500">Slot {{ slot }}</p>
+          <label class="text-sm">
+            <span class="text-slate-300">Turnos na série</span>
+            <div class="flex items-center gap-4 mt-2">
+              <input
+                type="range"
+                min="3"
+                max="7"
+                v-model.number="form.maxTurns"
+                class="flex-1"
+              />
+              <span class="text-xs text-slate-400 font-semibold">{{ form.maxTurns }} turno(s)</span>
+            </div>
+            <p class="text-xs text-slate-500">Use 7 turnos para formatos em que alguém precisa somar 4 pontos.</p>
+          </label>
+          <div class="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div v-for="slot in form.maxTurns" :key="slot" class="space-y-2">
+              <p class="text-xs uppercase tracking-wider text-slate-500">Turno {{ slot }}</p>
               <select v-model="form.comboSlots[slot - 1]" class="deck-input">
                 <option value="">Selecione um combo</option>
                 <option v-for="combo in combosStore.items" :key="combo.id" :value="combo.id">
@@ -95,6 +109,7 @@
               <p class="text-xs text-slate-500" v-if="deck.blader">
                 Blader: {{ deck.blader.nickname || deck.blader.name }}
               </p>
+              <p class="text-xs text-slate-500">Série de {{ deck.maxTurns ?? 3 }} turnos</p>
             </div>
             <div class="flex gap-2 text-xs">
               <button class="text-primary" @click="editDeck(deck)">Editar</button>
@@ -107,6 +122,9 @@
               <span>{{ slot.combo?.name ?? '—' }}</span>
             </li>
           </ul>
+          <p class="text-xs text-slate-500">
+            {{ deck.slots.length }} / {{ deck.maxTurns ?? deck.slots.length }} turnos preenchidos
+          </p>
           <p class="text-xs text-slate-500" v-if="deck.notes">{{ deck.notes }}</p>
         </article>
       </div>
@@ -117,7 +135,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 
 import { useCombosStore } from '../stores/combos';
 import { useDecksStore } from '../stores/decks';
@@ -127,21 +145,37 @@ const combosStore = useCombosStore();
 const decksStore = useDecksStore();
 const bladersStore = useBladersStore();
 
+const MIN_SERIES_TURNS = 3;
+const MAX_SERIES_TURNS = 7;
+
 const editingDeckId = ref('');
 const form = reactive({
   name: '',
   side: 'FLEX',
   notes: '',
-  comboSlots: ['', '', ''],
+  maxTurns: MIN_SERIES_TURNS,
+  comboSlots: Array.from({ length: MAX_SERIES_TURNS }, () => ''),
   bladerId: '',
 });
+
+watch(
+  () => form.maxTurns,
+  (next, prev) => {
+    if (next < prev) {
+      for (let index = next; index < MAX_SERIES_TURNS; index += 1) {
+        form.comboSlots[index] = '';
+      }
+    }
+  },
+);
 
 function resetForm() {
   editingDeckId.value = '';
   form.name = '';
   form.side = 'FLEX';
   form.notes = '';
-  form.comboSlots.splice(0, form.comboSlots.length, '', '', '');
+  form.maxTurns = MIN_SERIES_TURNS;
+  form.comboSlots.splice(0, form.comboSlots.length, ...Array.from({ length: MAX_SERIES_TURNS }, () => ''));
   form.bladerId = '';
 }
 
@@ -150,13 +184,14 @@ function loadDeck(deck) {
   form.name = deck.name;
   form.side = deck.side ?? 'FLEX';
   form.notes = deck.notes ?? '';
-  const slots = [0, 1, 2].map((index) => deck.slots[index]?.comboId ?? '');
+  form.maxTurns = deck.maxTurns ?? Math.max(MIN_SERIES_TURNS, deck.slots.length || MIN_SERIES_TURNS);
+  const slots = Array.from({ length: MAX_SERIES_TURNS }, (_value, index) => deck.slots[index]?.comboId ?? '');
   form.comboSlots.splice(0, form.comboSlots.length, ...slots);
   form.bladerId = deck.blader?.id ?? '';
 }
 
 async function handleSubmit() {
-  const comboIds = form.comboSlots.filter(Boolean);
+  const comboIds = form.comboSlots.slice(0, form.maxTurns).filter(Boolean);
   if (!comboIds.length) {
     window.alert('Selecione pelo menos um combo para o deck.');
     return;
@@ -166,6 +201,7 @@ async function handleSubmit() {
     side: form.side,
     notes: form.notes?.trim() || undefined,
     comboIds,
+    maxTurns: form.maxTurns,
     bladerId: form.bladerId || undefined,
   };
   if (editingDeckId.value) {

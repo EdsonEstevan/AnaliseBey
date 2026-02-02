@@ -18,6 +18,7 @@ import { decksRouter } from './routes/decksRouter';
 import { bladersRouter } from './routes/bladersRouter';
 import { uploadsDir } from './utils/storage';
 import { analyticsRouter } from './routes/analyticsRouter';
+import { assistantRouter } from './routes/assistantRouter';
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/providers', providersRouter);
 app.use('/api/backup', backupRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/assistant', assistantRouter);
 
 app.use(errorHandler);
 

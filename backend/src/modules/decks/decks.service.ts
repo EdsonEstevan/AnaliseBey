@@ -50,6 +50,7 @@ const serializeDeck = (deck: DeckWithRelations) => ({
   name: deck.name,
   side: deck.side,
   notes: deck.notes,
+  maxTurns: deck.maxTurns,
   blader: deck.blader
     ? {
         id: deck.blader.id,
@@ -129,6 +130,8 @@ export async function createDeck(payload: DeckPayload) {
   if (bladerId) {
     await ensureBladerExists(bladerId);
   }
+  const inferredTurns = payload.maxTurns ?? Math.max(3, comboIds.length);
+  const maxTurns = Math.min(7, Math.max(3, inferredTurns));
 
   const deck = await prisma.deck.create({
     data: {
@@ -136,6 +139,7 @@ export async function createDeck(payload: DeckPayload) {
       side: payload.side ?? null,
       notes: payload.notes ?? null,
       bladerId,
+      maxTurns,
       slots: {
         create: comboIds.map((comboId, index) => ({
           comboId,
@@ -165,11 +169,19 @@ export async function updateDeck(id: string, payload: Partial<DeckPayload>) {
       ? { connect: { id: bladerId } }
       : { disconnect: true };
   }
+  if (payload.maxTurns !== undefined) {
+    const inferred = Math.min(7, Math.max(3, payload.maxTurns));
+    data.maxTurns = inferred;
+  }
 
   const comboIds = payload.comboIds?.map((comboId) => comboId.trim()).filter(Boolean);
   if (comboIds && comboIds.length > 0) {
     assertUniqueComboIds(comboIds);
     await Promise.all(comboIds.map((comboId) => ensureComboExists(comboId)));
+    const currentTurns = typeof data.maxTurns === 'number' ? (data.maxTurns as number) : existing.maxTurns;
+    const desiredTurns = payload.maxTurns ?? currentTurns ?? 3;
+    const normalizedTurns = Math.min(7, Math.max(desiredTurns, comboIds.length, 3));
+    data.maxTurns = normalizedTurns;
 
     await prisma.$transaction(async (tx) => {
       await tx.deckSlot.deleteMany({ where: { deckId: id } });

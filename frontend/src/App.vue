@@ -55,13 +55,17 @@
       <section class="page-shell">
         <RouterView />
       </section>
+      <AssistantPanel />
     </main>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, RouterLink, RouterView } from 'vue-router';
+
+import AssistantPanel from './components/assistant/AssistantPanel.vue';
+import { useAssistantStore } from './stores/assistant';
 
 const menu = [
   { to: '/', label: 'Dashboard' },
@@ -92,6 +96,13 @@ const titles = {
 const route = useRoute();
 const currentTitle = computed(() => titles[route.path] ?? 'Beyblade X');
 
+const assistant = useAssistantStore();
+const routeContext = computed(() => ({
+  route: route.fullPath,
+  surface: titles[route.path] ?? 'Beyblade X',
+  focus: currentTitle.value,
+}));
+
 const isMobileMenuOpen = ref(false);
 const toggleMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
@@ -100,10 +111,15 @@ const closeMenu = () => {
   isMobileMenuOpen.value = false;
 };
 
+onMounted(() => {
+  assistant.bootstrap(routeContext.value);
+});
+
 watch(
   () => route.path,
   () => {
     closeMenu();
+    assistant.updateContext(routeContext.value);
   }
 );
 </script>
