@@ -84,6 +84,30 @@
                   </span>
                 </div>
                 <p v-if="mission.blockingReason" class="mission-note">Bloqueio: {{ mission.blockingReason }}</p>
+                <div v-if="mission.guide" class="mission-guide">
+                  <p class="guide-label">
+                    {{ mission.guide.surface ?? 'Fluxo indicado' }}
+                    <span v-if="mission.guide.route" class="guide-route">→ {{ mission.guide.route }}</span>
+                  </p>
+                  <ul v-if="mission.guide.steps?.length" class="guide-steps">
+                    <li
+                      v-for="(step, index) in mission.guide.steps"
+                      :key="`${mission.id}-step-${index}`"
+                      class="guide-step"
+                    >
+                      <span class="step-index">{{ index + 1 }}</span>
+                      <p>{{ step }}</p>
+                    </li>
+                  </ul>
+                  <button
+                    v-if="mission.status !== 'COMPLETED'"
+                    class="action guide"
+                    type="button"
+                    @click="handleGoComplete(mission)"
+                  >
+                    {{ mission.guide.ctaLabel || 'Ir concluir' }}
+                  </button>
+                </div>
                 <div class="mission-actions">
                   <button
                     v-if="mission.status !== 'COMPLETED'"
@@ -125,6 +149,7 @@
 
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { useAssistantStore } from '../../stores/assistant';
 
@@ -132,6 +157,7 @@ const assistant = useAssistantStore();
 const draft = ref('');
 const historyEl = ref(null);
 const composerField = ref(null);
+const router = useRouter();
 
 const labels = {
   ASSISTANT: 'Assistente',
@@ -162,6 +188,15 @@ function handleToggle() {
 function handleBlock(mission) {
   const note = window.prompt('Qual o motivo do bloqueio? (opcional)') ?? undefined;
   assistant.updateMissionStatus(mission.id, 'BLOCKED', note);
+}
+
+function handleGoComplete(mission) {
+  if (!mission?.guide?.route) return;
+  const location = mission.guide.anchor
+    ? { path: mission.guide.route, hash: mission.guide.anchor.startsWith('#') ? mission.guide.anchor : `#${mission.guide.anchor}` }
+    : mission.guide.route;
+  assistant.closePanel();
+  router.push(location).catch(() => {});
 }
 
 function statusLabel(status) {
@@ -524,6 +559,59 @@ watch(
   color: #fecaca;
 }
 
+.mission-guide {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(148, 163, 184, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.guide-label {
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.guide-route {
+  font-size: 0.65rem;
+  color: #fbbf24;
+}
+
+.guide-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.guide-step {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+}
+
+.step-index {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(248, 250, 252, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #facc15;
+}
+
 .mission-actions {
   display: flex;
   flex-wrap: wrap;
@@ -544,6 +632,13 @@ watch(
   background: rgba(16, 185, 129, 0.2);
   border-color: rgba(16, 185, 129, 0.4);
   color: #a7f3d0;
+}
+
+.action.guide {
+  background: linear-gradient(120deg, #f97316, #fbbf24);
+  border-color: transparent;
+  color: #0f172a;
+  font-weight: 600;
 }
 
 .count {
