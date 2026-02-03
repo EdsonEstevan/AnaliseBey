@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 
 import { toJsonArray } from '../src/utils/json';
 import { Archetype, PartType } from '../src/types/enums';
@@ -97,87 +99,84 @@ function buildComboName(blade: string, ratchet: string, bit: string) {
 }
 
 async function main() {
-  console.log('Limpando base...');
-  await prisma.battle.deleteMany();
-  await prisma.deckSlot.deleteMany();
-  await prisma.deck.deleteMany();
-  await prisma.blader.deleteMany();
-  await prisma.combo.deleteMany();
-  await prisma.arena.deleteMany();
-  await prisma.part.deleteMany();
+  await resetDatabase();
+  const { edson, visitor } = await bootstrapDefaultUsers();
+  await seedWorkspace(edson, 'Edson');
+  await seedWorkspace(visitor, 'Visitante');
+  console.log('Seed concluído.');
+}
 
-  console.log('Criando peças...');
-  const baseParts: SeedPart[] = [];
+const baseParts: SeedPart[] = [];
 
-  const bladeSpecs: BladeSpec[] = [
-    { name: 'Cobalt Drake', archetype: 'ATTACK', weight: 38.0, line: 'BX' },
-    { name: 'Phoenix Feather', archetype: 'ATTACK', weight: 34.8, line: 'BX' },
-    { name: 'Dran Sword', archetype: 'ATTACK', weight: 32.2, line: 'BX' },
-    { name: 'Hells Scythe', archetype: 'BALANCE', weight: 32.6, line: 'BX' },
-    { name: 'Wizard Arrow', archetype: 'STAMINA', weight: 32.0, line: 'BX' },
-    { name: 'Knight Shield', archetype: 'DEFENSE', weight: 32.3, line: 'BX' },
-    { name: 'Knight Lance', archetype: 'DEFENSE', weight: 32.2, line: 'BX' },
-    { name: 'Shark Edge', archetype: 'ATTACK', weight: 32.5, line: 'BX' },
-    { name: 'Leon Claw', archetype: 'BALANCE', weight: 31.3, line: 'BX' },
-    { name: 'Viper Tail', archetype: 'STAMINA', weight: 32.0, line: 'BX' },
-    { name: 'Rhino Horn', archetype: 'DEFENSE', weight: 31.9, line: 'BX' },
-    { name: 'Dran Dagger', archetype: 'ATTACK', weight: 32.0, line: 'BX' },
-    { name: 'Hells Chain', archetype: 'BALANCE', weight: 33.25, line: 'BX' },
-    { name: 'Phoenix Wing', archetype: 'ATTACK', weight: 38.0, line: 'BX' },
-    { name: 'Wyvern Gale', archetype: 'STAMINA', weight: 32.15, line: 'BX' },
-    { name: 'Unicorn Sting', archetype: 'BALANCE', weight: 33.3, line: 'BX' },
-    { name: 'Sphynx Cowl', archetype: 'DEFENSE', weight: 32.7, line: 'BX' },
-    { name: 'Cobalt Dragoon', archetype: 'ATTACK', weight: 37.8, line: 'BX' },
-    { name: 'Whale Wave', archetype: 'BALANCE', weight: 38.2, line: 'BX' },
-    { name: 'Tricera Press', archetype: 'DEFENSE', weight: 36.5, line: 'BX' },
-    { name: 'BlackShell', archetype: 'DEFENSE', weight: 32.4, line: 'BX' },
-    { name: 'CrimsonGaruda', archetype: 'BALANCE', weight: 35.0, line: 'BX' },
-    { name: 'ShelterDrake', archetype: 'BALANCE', weight: 32.6, line: 'BX' },
-    { name: 'WeissTiger', archetype: 'BALANCE', weight: 34.6, line: 'BX' },
-    { name: 'Bite Croc', archetype: 'ATTACK', weight: 34.0, line: 'BX', alias: 'CrocCrunch' },
-    { name: 'Knife Shinobi', archetype: 'DEFENSE', weight: 30.9, line: 'BX', alias: 'ShinobiKnife' },
-    { name: 'Talon Ptera', archetype: 'STAMINA', weight: 34.3, line: 'BX', alias: 'PteraSwing' },
-    { name: 'Roar Tyranno', archetype: 'ATTACK', weight: 36.0, line: 'BX', alias: 'TyrannoRoar' },
-    { name: 'Savage Bear', archetype: 'DEFENSE', weight: 29.6, line: 'BX', alias: 'BearScratch' },
-    { name: 'TyrannoBeat', archetype: 'ATTACK', weight: 37.0, line: 'BX' },
-    { name: 'Aero Pegasus', archetype: 'ATTACK', weight: 38.3, line: 'UX' },
-    { name: 'Dran Buster', archetype: 'ATTACK', weight: 36.5, line: 'UX' },
-    { name: 'Hells Hammer', archetype: 'ATTACK', weight: 33.0, line: 'UX' },
-    { name: 'Wizard Rod', archetype: 'STAMINA', weight: 35.4, line: 'UX' },
-    { name: 'Leon Crest', archetype: 'DEFENSE', weight: 35.0, line: 'UX' },
-    { name: 'Silver Wolf', archetype: 'STAMINA', weight: 36.8, line: 'UX' },
-    { name: 'Samurai Saber', archetype: 'ATTACK', weight: 36.5, line: 'UX' },
-    { name: 'Knight Mail', archetype: 'DEFENSE', weight: 36.6, line: 'UX' },
-    { name: 'Impact Drake', archetype: 'ATTACK', weight: 39.0, line: 'UX' },
-    { name: 'Golem Rock', archetype: 'DEFENSE', weight: 34.0, line: 'UX' },
-    { name: 'Scorpio Spear', archetype: 'BALANCE', weight: 39.7, line: 'UX' },
-    { name: 'Shark Scale', archetype: 'ATTACK', weight: 37.5, line: 'UX' },
-    { name: 'Clock Mirage', archetype: 'STAMINA', weight: 37.7, line: 'UX' },
-    { name: 'Mummy Curse', archetype: 'DEFENSE', weight: 37.5, line: 'UX' },
-    { name: 'WizardRod', archetype: 'STAMINA', weight: 35.3, line: 'UX' },
-    { name: 'MeteorDragoon', archetype: 'ATTACK', weight: 39.0, line: 'UX' },
-    { name: 'Tempest Dragon', archetype: 'ATTACK', weight: 38.5, line: 'CX' },
-    { name: 'Aegis Hydra', archetype: 'DEFENSE', weight: 37.1, line: 'CX' },
-    { name: 'Mirage Crane', archetype: 'STAMINA', weight: 36.4, line: 'CX' },
-    { name: 'Antler', archetype: 'DEFENSE', weight: 29.1, line: 'CX' },
-    { name: 'Arc', archetype: 'BALANCE', weight: 29.2, line: 'CX' },
-    { name: 'Blast', archetype: 'ATTACK', weight: 32.8, line: 'CX' },
-    { name: 'Brave', archetype: 'ATTACK', weight: 31.2, line: 'CX' },
-    { name: 'Brush', archetype: 'STAMINA', weight: 30.3, line: 'CX' },
-    { name: 'Dark', archetype: 'BALANCE', weight: 30.3, line: 'CX' },
-    { name: 'Eclipse', archetype: 'BALANCE', weight: 32.3, line: 'CX' },
-    { name: 'Fang', archetype: 'ATTACK', weight: 30.4, line: 'CX' },
-    { name: 'Flame', archetype: 'ATTACK', weight: 28.5, line: 'CX' },
-    { name: 'Flare', archetype: 'ATTACK', weight: 31.1, line: 'CX' },
-    { name: 'Fort', archetype: 'DEFENSE', weight: 29.0, line: 'CX' },
-    { name: 'Hunt', archetype: 'ATTACK', weight: 31.6, line: 'CX' },
-    { name: 'Might', archetype: 'BALANCE', weight: 33.1, line: 'CX' },
-    { name: 'Reaper', archetype: 'ATTACK', weight: 29.0, line: 'CX' },
-    { name: 'Volt', archetype: 'ATTACK', weight: 31.0, line: 'CX' },
-    { name: 'Wriggle', archetype: 'STAMINA', weight: 29.3, line: 'CX' },
-  ];
+const bladeSpecs: BladeSpec[] = [
+  { name: 'Cobalt Drake', archetype: 'ATTACK', weight: 38.0, line: 'BX' },
+  { name: 'Phoenix Feather', archetype: 'ATTACK', weight: 34.8, line: 'BX' },
+  { name: 'Dran Sword', archetype: 'ATTACK', weight: 32.2, line: 'BX' },
+  { name: 'Hells Scythe', archetype: 'BALANCE', weight: 32.6, line: 'BX' },
+  { name: 'Wizard Arrow', archetype: 'STAMINA', weight: 32.0, line: 'BX' },
+  { name: 'Knight Shield', archetype: 'DEFENSE', weight: 32.3, line: 'BX' },
+  { name: 'Knight Lance', archetype: 'DEFENSE', weight: 32.2, line: 'BX' },
+  { name: 'Shark Edge', archetype: 'ATTACK', weight: 32.5, line: 'BX' },
+  { name: 'Leon Claw', archetype: 'BALANCE', weight: 31.3, line: 'BX' },
+  { name: 'Viper Tail', archetype: 'STAMINA', weight: 32.0, line: 'BX' },
+  { name: 'Rhino Horn', archetype: 'DEFENSE', weight: 31.9, line: 'BX' },
+  { name: 'Dran Dagger', archetype: 'ATTACK', weight: 32.0, line: 'BX' },
+  { name: 'Hells Chain', archetype: 'BALANCE', weight: 33.25, line: 'BX' },
+  { name: 'Phoenix Wing', archetype: 'ATTACK', weight: 38.0, line: 'BX' },
+  { name: 'Wyvern Gale', archetype: 'STAMINA', weight: 32.15, line: 'BX' },
+  { name: 'Unicorn Sting', archetype: 'BALANCE', weight: 33.3, line: 'BX' },
+  { name: 'Sphynx Cowl', archetype: 'DEFENSE', weight: 32.7, line: 'BX' },
+  { name: 'Cobalt Dragoon', archetype: 'ATTACK', weight: 37.8, line: 'BX' },
+  { name: 'Whale Wave', archetype: 'BALANCE', weight: 38.2, line: 'BX' },
+  { name: 'Tricera Press', archetype: 'DEFENSE', weight: 36.5, line: 'BX' },
+  { name: 'BlackShell', archetype: 'DEFENSE', weight: 32.4, line: 'BX' },
+  { name: 'CrimsonGaruda', archetype: 'BALANCE', weight: 35.0, line: 'BX' },
+  { name: 'ShelterDrake', archetype: 'BALANCE', weight: 32.6, line: 'BX' },
+  { name: 'WeissTiger', archetype: 'BALANCE', weight: 34.6, line: 'BX' },
+  { name: 'Bite Croc', archetype: 'ATTACK', weight: 34.0, line: 'BX', alias: 'CrocCrunch' },
+  { name: 'Knife Shinobi', archetype: 'DEFENSE', weight: 30.9, line: 'BX', alias: 'ShinobiKnife' },
+  { name: 'Talon Ptera', archetype: 'STAMINA', weight: 34.3, line: 'BX', alias: 'PteraSwing' },
+  { name: 'Roar Tyranno', archetype: 'ATTACK', weight: 36.0, line: 'BX', alias: 'TyrannoRoar' },
+  { name: 'Savage Bear', archetype: 'DEFENSE', weight: 29.6, line: 'BX', alias: 'BearScratch' },
+  { name: 'TyrannoBeat', archetype: 'ATTACK', weight: 37.0, line: 'BX' },
+  { name: 'Aero Pegasus', archetype: 'ATTACK', weight: 38.3, line: 'UX' },
+  { name: 'Dran Buster', archetype: 'ATTACK', weight: 36.5, line: 'UX' },
+  { name: 'Hells Hammer', archetype: 'ATTACK', weight: 33.0, line: 'UX' },
+  { name: 'Wizard Rod', archetype: 'STAMINA', weight: 35.4, line: 'UX' },
+  { name: 'Leon Crest', archetype: 'DEFENSE', weight: 35.0, line: 'UX' },
+  { name: 'Silver Wolf', archetype: 'STAMINA', weight: 36.8, line: 'UX' },
+  { name: 'Samurai Saber', archetype: 'ATTACK', weight: 36.5, line: 'UX' },
+  { name: 'Knight Mail', archetype: 'DEFENSE', weight: 36.6, line: 'UX' },
+  { name: 'Impact Drake', archetype: 'ATTACK', weight: 39.0, line: 'UX' },
+  { name: 'Golem Rock', archetype: 'DEFENSE', weight: 34.0, line: 'UX' },
+  { name: 'Scorpio Spear', archetype: 'BALANCE', weight: 39.7, line: 'UX' },
+  { name: 'Shark Scale', archetype: 'ATTACK', weight: 37.5, line: 'UX' },
+  { name: 'Clock Mirage', archetype: 'STAMINA', weight: 37.7, line: 'UX' },
+  { name: 'Mummy Curse', archetype: 'DEFENSE', weight: 37.5, line: 'UX' },
+  { name: 'WizardRod', archetype: 'STAMINA', weight: 35.3, line: 'UX' },
+  { name: 'MeteorDragoon', archetype: 'ATTACK', weight: 39.0, line: 'UX' },
+  { name: 'Tempest Dragon', archetype: 'ATTACK', weight: 38.5, line: 'CX' },
+  { name: 'Aegis Hydra', archetype: 'DEFENSE', weight: 37.1, line: 'CX' },
+  { name: 'Mirage Crane', archetype: 'STAMINA', weight: 36.4, line: 'CX' },
+  { name: 'Antler', archetype: 'DEFENSE', weight: 29.1, line: 'CX' },
+  { name: 'Arc', archetype: 'BALANCE', weight: 29.2, line: 'CX' },
+  { name: 'Blast', archetype: 'ATTACK', weight: 32.8, line: 'CX' },
+  { name: 'Brave', archetype: 'ATTACK', weight: 31.2, line: 'CX' },
+  { name: 'Brush', archetype: 'STAMINA', weight: 30.3, line: 'CX' },
+  { name: 'Dark', archetype: 'BALANCE', weight: 30.3, line: 'CX' },
+  { name: 'Eclipse', archetype: 'BALANCE', weight: 32.3, line: 'CX' },
+  { name: 'Fang', archetype: 'ATTACK', weight: 30.4, line: 'CX' },
+  { name: 'Flame', archetype: 'ATTACK', weight: 28.5, line: 'CX' },
+  { name: 'Flare', archetype: 'ATTACK', weight: 31.1, line: 'CX' },
+  { name: 'Fort', archetype: 'DEFENSE', weight: 29.0, line: 'CX' },
+  { name: 'Hunt', archetype: 'ATTACK', weight: 31.6, line: 'CX' },
+  { name: 'Might', archetype: 'BALANCE', weight: 33.1, line: 'CX' },
+  { name: 'Reaper', archetype: 'ATTACK', weight: 29.0, line: 'CX' },
+  { name: 'Volt', archetype: 'ATTACK', weight: 31.0, line: 'CX' },
+  { name: 'Wriggle', archetype: 'STAMINA', weight: 29.3, line: 'CX' },
+];
 
-  const bitSpecs: BitSpec[] = [
+const bitSpecs: BitSpec[] = [
     // Basic Line
     { name: 'Ball', line: 'BX', archetype: 'STAMINA', weight: 2.1 },
     { name: 'Cyclone', line: 'BX', archetype: 'ATTACK', weight: 2.1 },
@@ -371,188 +370,266 @@ async function main() {
     })),
   ];
 
-  const parts = {} as Record<string, string>;
-  for (const data of partsData) {
-    const part = await prisma.part.create({
-      data: {
-        name: data.name,
-        type: data.type,
-        variant: data.variant ?? null,
-        weight: data.weight ?? null,
-        archetype: data.archetype,
-        subArchetype: data.subArchetype ?? null,
-        tags: toJsonArray(data.tags),
-        notes: data.notes ?? null,
-        imageUrl: data.imageUrl ?? placeholder(data.name),
-      },
-    });
-    parts[data.name] = part.id;
+  type SeedWorkspaceUser = {
+    id: string;
+    name: string;
+    username: string;
+  };
+
+  function generateAccessKey(prefix = 'LAB') {
+    return `${prefix}-${randomBytes(4).toString('hex').toUpperCase()}`;
   }
 
-  console.log('Criando arenas...');
-  const arena = await prisma.arena.create({
-    data: { name: 'Quad Stadium', model: 'X-01' },
-  });
-  const arena2 = await prisma.arena.create({
-    data: { name: 'Speed Crater', model: 'X-02' },
-  });
+  async function resetDatabase() {
+    console.log('Limpando base multi-tenant...');
+    await prisma.assistantMission.deleteMany();
+    await prisma.assistantMessage.deleteMany();
+    await prisma.assistantSession.deleteMany();
+    await prisma.battle.deleteMany();
+    await prisma.deckSlot.deleteMany();
+    await prisma.deck.deleteMany();
+    await prisma.blader.deleteMany();
+    await prisma.combo.deleteMany();
+    await prisma.arena.deleteMany();
+    await prisma.part.deleteMany();
+    await prisma.accessKey.deleteMany();
+    await prisma.user.deleteMany();
+  }
 
-  console.log('Criando combos...');
-  const combos = await Promise.all([
-    prisma.combo.create({
+  async function bootstrapDefaultUsers() {
+    console.log('Criando usuários padrão (Edson e Visitante)...');
+    const adminPassword = '#Estevan13';
+    const edson = await prisma.user.create({
       data: {
-        name: buildComboName('Cobalt Drake', '5-60', 'Rush'),
-        bladeId: parts['Cobalt Drake'],
-        ratchetId: parts['5-60'],
-        bitId: parts['Rush'],
-        archetype: 'ATTACK',
-        subArchetype: 'Blitz Core',
-        imageUrl: placeholder('Drake Combo'),
+        name: 'Edson',
+        username: 'edson',
+        role: 'ADMIN',
+        passwordHash: await bcrypt.hash(adminPassword, 10),
+        passwordNote: adminPassword,
       },
-    }),
-    prisma.combo.create({
+    });
+
+    const visitor = await prisma.user.create({
       data: {
-        name: buildComboName('Knight Shield', '4-70', 'Needle'),
-        bladeId: parts['Knight Shield'],
-        ratchetId: parts['4-70'],
-        bitId: parts['Needle'],
-        archetype: 'DEFENSE',
-        subArchetype: 'Iron Guard',
-        imageUrl: placeholder('Shield Combo'),
+        name: 'Visitante',
+        username: 'visitante',
+        role: 'VISITOR',
+        passwordHash: null,
+        passwordNote: 'Acesso aberto',
       },
-    }),
-    prisma.combo.create({
+    });
+
+    await Promise.all(
+      Array.from({ length: 10 }).map(() =>
+        prisma.accessKey.create({
+          data: {
+            code: generateAccessKey('EDSON'),
+            ownerId: edson.id,
+          },
+        }),
+      ),
+    );
+
+    return { edson, visitor } satisfies { edson: SeedWorkspaceUser; visitor: SeedWorkspaceUser };
+  }
+
+  async function seedWorkspace(user: SeedWorkspaceUser, label: string) {
+    const tag = `[${label}]`;
+    console.log(`${tag} Criando peças...`);
+    const parts: Record<string, string> = {};
+    for (const data of partsData) {
+      const part = await prisma.part.create({
+        data: {
+          userId: user.id,
+          name: data.name,
+          type: data.type,
+          variant: data.variant ?? null,
+          weight: data.weight ?? null,
+          archetype: data.archetype,
+          subArchetype: data.subArchetype ?? null,
+          tags: toJsonArray(data.tags),
+          notes: data.notes ?? null,
+          imageUrl: data.imageUrl ?? placeholder(data.name),
+        },
+      });
+      parts[data.name] = part.id;
+    }
+
+    console.log(`${tag} Criando arenas...`);
+    const arena = await prisma.arena.create({
+      data: { userId: user.id, name: 'Quad Stadium', model: 'X-01' },
+    });
+    const arena2 = await prisma.arena.create({
+      data: { userId: user.id, name: 'Speed Crater', model: 'X-02' },
+    });
+
+    console.log(`${tag} Criando combos...`);
+    const combos = await Promise.all([
+      prisma.combo.create({
+        data: {
+          userId: user.id,
+          name: buildComboName('Cobalt Drake', '5-60', 'Rush'),
+          bladeId: parts['Cobalt Drake'],
+          ratchetId: parts['5-60'],
+          bitId: parts['Rush'],
+          archetype: 'ATTACK',
+          subArchetype: 'Blitz Core',
+          imageUrl: placeholder('Drake Combo'),
+        },
+      }),
+      prisma.combo.create({
+        data: {
+          userId: user.id,
+          name: buildComboName('Knight Shield', '4-70', 'Needle'),
+          bladeId: parts['Knight Shield'],
+          ratchetId: parts['4-70'],
+          bitId: parts['Needle'],
+          archetype: 'DEFENSE',
+          subArchetype: 'Iron Guard',
+          imageUrl: placeholder('Shield Combo'),
+        },
+      }),
+      prisma.combo.create({
+        data: {
+          userId: user.id,
+          name: buildComboName('Whale Wave', '2-70', 'Elevate'),
+          bladeId: parts['Whale Wave'],
+          ratchetId: parts['2-70'],
+          bitId: parts['Elevate'],
+          archetype: 'BALANCE',
+          subArchetype: 'Flow Sync',
+          imageUrl: placeholder('Wave Combo'),
+        },
+      }),
+      prisma.combo.create({
+        data: {
+          userId: user.id,
+          name: buildComboName('Tempest Dragon', 'F-4-60', 'F-4-60'),
+          bladeId: parts['Tempest Dragon'],
+          ratchetId: parts['F-4-60'],
+          bitId: parts['F-4-60'],
+          assistBladeId: parts['Edge Boost Assist'],
+          lockChipId: parts['Nova Lock Chip'],
+          archetype: 'ATTACK',
+          subArchetype: 'CX Blitz',
+          tags: toJsonArray(['CX', 'integrado']),
+          imageUrl: placeholder('Tempest CX'),
+        },
+      }),
+      prisma.combo.create({
+        data: {
+          userId: user.id,
+          name: buildComboName('Mirage Crane', 'N-5-70', 'N-5-70'),
+          bladeId: parts['Mirage Crane'],
+          ratchetId: parts['N-5-70'],
+          bitId: parts['N-5-70'],
+          assistBladeId: parts['Horizon Glide Assist'],
+          lockChipId: parts['Mirage Anchor Lock Chip'],
+          archetype: 'STAMINA',
+          subArchetype: 'CX Sustain',
+          tags: toJsonArray(['CX']),
+          imageUrl: placeholder('Mirage CX'),
+        },
+      }),
+    ]);
+
+    console.log(`${tag} Criando bladers...`);
+    const bladerA = await prisma.blader.create({
       data: {
-        name: buildComboName('Whale Wave', '2-70', 'Elevate'),
-        bladeId: parts['Whale Wave'],
-        ratchetId: parts['2-70'],
-        bitId: parts['Elevate'],
-        archetype: 'BALANCE',
-        subArchetype: 'Flow Sync',
-        imageUrl: placeholder('Wave Combo'),
+        userId: user.id,
+        name: 'Kai Tanaka',
+        nickname: 'Alpha Kai',
+        age: 16,
+        country: 'Brasil',
+        team: 'Team Nova',
+        notes: 'Titular do laboratório',
       },
-    }),
-    prisma.combo.create({
+    });
+    const bladerB = await prisma.blader.create({
       data: {
-        name: buildComboName('Tempest Dragon', 'F-4-60', 'F-4-60'),
-        bladeId: parts['Tempest Dragon'],
-        ratchetId: parts['F-4-60'],
-        bitId: parts['F-4-60'],
-        assistBladeId: parts['Edge Boost Assist'],
-            lockChipId: parts['Nova Lock Chip'],
-        archetype: 'ATTACK',
-        subArchetype: 'CX Blitz',
-        tags: toJsonArray(['CX', 'integrado']),
-        imageUrl: placeholder('Tempest CX'),
+        userId: user.id,
+        name: 'Maya Lopes',
+        nickname: 'Storm Maya',
+        age: 17,
+        country: 'Brasil',
+        team: 'Storm League',
       },
-    }),
-    prisma.combo.create({
+    });
+
+    console.log(`${tag} Criando decks...`);
+    await prisma.deck.create({
       data: {
-        name: buildComboName('Mirage Crane', 'N-5-70', 'N-5-70'),
-        bladeId: parts['Mirage Crane'],
-        ratchetId: parts['N-5-70'],
-        bitId: parts['N-5-70'],
-        assistBladeId: parts['Horizon Glide Assist'],
-            lockChipId: parts['Mirage Anchor Lock Chip'],
-        archetype: 'STAMINA',
-        subArchetype: 'CX Sustain',
-        tags: toJsonArray(['CX']),
-        imageUrl: placeholder('Mirage CX'),
+        userId: user.id,
+        name: 'Alpha Kai Deck',
+        side: 'A',
+        bladerId: bladerA.id,
+        slots: {
+          create: [
+            { comboId: combos[0].id, position: 1 },
+            { comboId: combos[1].id, position: 2 },
+            { comboId: combos[2].id, position: 3 },
+          ],
+        },
       },
-    }),
-  ]);
+    });
 
-  console.log('Criando batalhas de exemplo...');
-  const [comboA, comboB, comboC] = combos;
-  console.log('Criando bladers...');
-  const bladerA = await prisma.blader.create({
-    data: {
-      name: 'Kai Tanaka',
-      nickname: 'Alpha Kai',
-      age: 16,
-      country: 'Brasil',
-      team: 'Team Nova',
-      notes: 'Titular do laboratório',
-    },
-  });
-  const bladerB = await prisma.blader.create({
-    data: {
-      name: 'Maya Lopes',
-      nickname: 'Storm Maya',
-      age: 17,
-      country: 'Brasil',
-      team: 'Storm League',
-    },
-  });
-
-  console.log('Criando decks baseados nos bladers...');
-  await prisma.deck.create({
-    data: {
-      name: 'Alpha Kai Deck',
-      side: 'A',
-      bladerId: bladerA.id,
-      slots: {
-        create: [
-          { comboId: comboA.id, position: 1 },
-          { comboId: comboB.id, position: 2 },
-          { comboId: comboC.id, position: 3 },
-        ],
+    await prisma.deck.create({
+      data: {
+        userId: user.id,
+        name: 'Storm Maya Deck',
+        side: 'B',
+        bladerId: bladerB.id,
+        slots: {
+          create: [
+            { comboId: combos[1].id, position: 1 },
+            { comboId: combos[2].id, position: 2 },
+          ],
+        },
       },
-    },
-  });
+    });
 
-  await prisma.deck.create({
-    data: {
-      name: 'Storm Maya Deck',
-      side: 'B',
-      bladerId: bladerB.id,
-      slots: {
-        create: [
-          { comboId: comboB.id, position: 1 },
-          { comboId: comboC.id, position: 2 },
-        ],
-      },
-    },
-  });
+    console.log(`${tag} Criando batalhas de exemplo...`);
+    const [comboA, comboB, comboC] = combos;
+    await prisma.battle.createMany({
+      data: [
+        {
+          userId: user.id,
+          comboAId: comboA.id,
+          comboBId: comboB.id,
+          bladerAId: bladerA.id,
+          bladerBId: bladerB.id,
+          result: 'COMBO_A',
+          victoryType: 'knockout',
+          arenaId: arena.id,
+          mode: 'OFFICIAL_3ON3',
+        },
+        {
+          userId: user.id,
+          comboAId: comboA.id,
+          comboBId: comboC.id,
+          bladerAId: bladerA.id,
+          bladerBId: bladerB.id,
+          result: 'COMBO_B',
+          victoryType: 'spin',
+          arenaId: arena2.id,
+          mode: 'REGIONAL_CIRCUIT',
+        },
+        {
+          userId: user.id,
+          comboAId: comboB.id,
+          comboBId: comboC.id,
+          bladerAId: bladerB.id,
+          bladerBId: bladerA.id,
+          result: 'DRAW',
+          victoryType: 'over',
+          arenaId: arena.id,
+          mode: 'LONG_TRAINING',
+        },
+      ],
+    });
 
-  await prisma.battle.createMany({
-    data: [
-      {
-        comboAId: comboA.id,
-        comboBId: comboB.id,
-        bladerAId: bladerA.id,
-        bladerBId: bladerB.id,
-        result: 'COMBO_A',
-        victoryType: 'knockout',
-        arenaId: arena.id,
-        mode: 'OFFICIAL_3ON3',
-      },
-      {
-        comboAId: comboA.id,
-        comboBId: comboC.id,
-        bladerAId: bladerA.id,
-        bladerBId: bladerB.id,
-        result: 'COMBO_B',
-        victoryType: 'spin',
-        arenaId: arena2.id,
-        mode: 'REGIONAL_CIRCUIT',
-      },
-      {
-        comboAId: comboB.id,
-        comboBId: comboC.id,
-        bladerAId: bladerB.id,
-        bladerBId: bladerA.id,
-        result: 'DRAW',
-        victoryType: 'over',
-        arenaId: arena.id,
-        mode: 'LONG_TRAINING',
-      },
-    ],
-  });
-
-  console.log('Seed concluído.');
-}
-
+    console.log(`${tag} Workspace pronto.`);
+  }
 main()
   .catch((err) => {
     console.error(err);

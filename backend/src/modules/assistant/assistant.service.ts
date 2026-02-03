@@ -565,21 +565,22 @@ function summarizeRoute(context?: AssistantContextPayload | null) {
   return context.route;
 }
 
-async function fetchWorkspaceStats(): Promise<WorkspaceStats> {
+async function fetchWorkspaceStats(userId: string): Promise<WorkspaceStats> {
   const since7d = new Date(Date.now() - 7 * DAYS);
   const [battlesTotal, battlesLast7, combosActive, decksTotal, decksNeedingUpgrade, partsCatalog, lastBattle] =
     await prisma.$transaction([
-      prisma.battle.count(),
-      prisma.battle.count({ where: { occurredAt: { gte: since7d } } }),
-      prisma.combo.count({ where: { status: 'ACTIVE' } }),
-      prisma.deck.count(),
-      prisma.deck.count({ where: { maxTurns: { lt: 7 } } }),
-      prisma.part.count({ where: { archived: false } }),
-      prisma.battle.findFirst({ orderBy: { occurredAt: 'desc' }, select: { occurredAt: true } }),
+      prisma.battle.count({ where: { userId } }),
+      prisma.battle.count({ where: { userId, occurredAt: { gte: since7d } } }),
+      prisma.combo.count({ where: { userId, status: 'ACTIVE' } }),
+      prisma.deck.count({ where: { userId } }),
+      prisma.deck.count({ where: { userId, maxTurns: { lt: 7 } } }),
+      prisma.part.count({ where: { userId, archived: false } }),
+      prisma.battle.findFirst({ where: { userId }, orderBy: { occurredAt: 'desc' }, select: { occurredAt: true } }),
     ]);
 
   const [comboMeta, battleHistory] = await Promise.all([
     prisma.combo.findMany({
+      where: { userId },
       select: {
         id: true,
         name: true,
@@ -589,6 +590,7 @@ async function fetchWorkspaceStats(): Promise<WorkspaceStats> {
       },
     }),
     prisma.battle.findMany({
+      where: { userId },
       select: {
         comboAId: true,
         comboBId: true,
@@ -629,9 +631,9 @@ async function fetchWorkspaceStats(): Promise<WorkspaceStats> {
   };
 }
 
-async function ensureSession(payload: AssistantSessionPayload) {
+async function ensureSession(userId: string, payload: AssistantSessionPayload) {
   if (payload.sessionId) {
-    const session = await prisma.assistantSession.findUnique({ where: { id: payload.sessionId } });
+    const session = await prisma.assistantSession.findFirst({ where: { id: payload.sessionId, userId } });
     if (!session) {
       throw notFound('Sessão da assistente não encontrada. Abra uma nova conversa.');
     }
@@ -649,6 +651,7 @@ async function ensureSession(payload: AssistantSessionPayload) {
 
   const session = await prisma.assistantSession.create({
     data: {
+      userId,
       label: 'workspace-default',
       context: payload.context as Prisma.InputJsonValue,
       lastRoute: summarizeRoute(payload.context),
@@ -1183,9 +1186,9 @@ function buildAssistantReply(
   return lines.join('\n\n');
 }
 
-export async function bootstrapAssistant(payload: AssistantSessionPayload) {
-  const session = await ensureSession(payload);
-  const stats = await fetchWorkspaceStats();
+export async function bootstrapAssistant(userId: string, payload: AssistantSessionPayload) {
+  const session = await ensureSession(userId, payload);
+  const stats = await fetchWorkspaceStats(userId);
   const missions = await syncMissions(session.id, stats, payload.context);
   const history = await listMessages(session.id);
 
@@ -1199,8 +1202,8 @@ export async function bootstrapAssistant(payload: AssistantSessionPayload) {
   return { sessionId: session.id, message: null, missions, history };
 }
 
-export async function processAssistantMessage(payload: AssistantMessagePayload) {
-  const session = await ensureSession(payload);
+export async function processAssistantMessage(userId: string, payload: AssistantMessagePayload) {
+  const session = await ensureSession(userId, payload);
   const intent = detectIntent(payload.message);
   if (intent === 'BLOCKED') {
     await blockMissionDueToUser(session.id, payload.message);
@@ -1209,7 +1212,7 @@ export async function processAssistantMessage(payload: AssistantMessagePayload) 
     await markMissionCompleted(session.id);
   }
   await recordMessage(session.id, 'USER', payload.message, payload.context);
-  const stats = await fetchWorkspaceStats();
+  const stats = await fetchWorkspaceStats(userId);
   const missions = await syncMissions(session.id, stats, payload.context);
   const reply = buildAssistantReply(payload.message, intent, stats, missions, payload.context);
   const assistantEntry = await recordMessage(session.id, 'ASSISTANT', reply, payload.context);
@@ -1217,15 +1220,15 @@ export async function processAssistantMessage(payload: AssistantMessagePayload) 
   return { sessionId: session.id, reply: assistantEntry.content, missions, history };
 }
 
-export async function updateAssistantContext(payload: AssistantSessionPayload) {
-  const session = await ensureSession(payload);
-  const stats = await fetchWorkspaceStats();
+export async function updateAssistantContext(userId: string, payload: AssistantSessionPayload) {
+  const session = await ensureSession(userId, payload);
+  const stats = await fetchWorkspaceStats(userId);
   const missions = await syncMissions(session.id, stats, payload.context);
   return { sessionId: session.id, missions };
 }
 
-export async function listAssistantMissions(sessionId: string) {
-  const session = await prisma.assistantSession.findUnique({ where: { id: sessionId } });
+export async function listAssistantMissions(userId: string, sessionId: string) {
+  const session = await prisma.assistantSession.findFirst({ where: { id: sessionId, userId } });
   if (!session) {
     throw notFound('Sessão não encontrada.');
   }
@@ -1234,6 +1237,7 @@ export async function listAssistantMissions(sessionId: string) {
 }
 
 export async function updateAssistantMission(
+  userId: string,
   sessionId: string,
   missionId: string,
   status: AssistantMissionStatus,
@@ -1245,6 +1249,10 @@ export async function updateAssistantMission(
   const mission = await prisma.assistantMission.findUnique({ where: { id: missionId } });
   if (!mission || mission.sessionId !== sessionId) {
     throw notFound('Missão não encontrada para esta sessão.');
+  }
+  const session = await prisma.assistantSession.findFirst({ where: { id: sessionId, userId } });
+  if (!session) {
+    throw notFound('Sessão não encontrada.');
   }
 
   const update: Prisma.AssistantMissionUpdateInput = {

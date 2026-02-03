@@ -18,10 +18,11 @@ const serializePart = (part: Part) => ({
   tags: ensureStringArray(part.tags as unknown),
 });
 
-export async function listParts(filters: PartFilters = {}) {
+export async function listParts(userId: string, filters: PartFilters = {}) {
   const { includeArchived = false, search, type, archetype } = filters;
 
   const where = {
+    userId,
     archived: includeArchived ? undefined : false,
     type,
     archetype,
@@ -45,25 +46,23 @@ export async function listParts(filters: PartFilters = {}) {
       : {}),
   };
 
-  const parts = await prisma.part.findMany({
-    where,
-    orderBy: { updatedAt: 'desc' },
-  });
+  const parts = await prisma.part.findMany({ where, orderBy: { updatedAt: 'desc' } });
 
   return parts.map(serializePart);
 }
 
-export async function getPartById(id: string) {
-  const part = await prisma.part.findUnique({ where: { id } });
+export async function getPartById(userId: string, id: string) {
+  const part = await prisma.part.findFirst({ where: { id, userId } });
   if (!part) {
     throw notFound('Peça não encontrada.');
   }
   return serializePart(part);
 }
 
-export async function createPart(payload: PartPayload) {
+export async function createPart(userId: string, payload: PartPayload) {
   const part = await prisma.part.create({
     data: {
+      userId,
       name: payload.name,
       type: payload.type,
       variant: payload.variant,
@@ -79,8 +78,8 @@ export async function createPart(payload: PartPayload) {
   return serializePart(part);
 }
 
-export async function updatePart(id: string, payload: Partial<PartPayload>) {
-  const existing = await prisma.part.findUnique({ where: { id } });
+export async function updatePart(userId: string, id: string, payload: Partial<PartPayload>) {
+  const existing = await prisma.part.findFirst({ where: { id, userId } });
   if (!existing) {
     throw notFound('Peça não encontrada.');
   }
@@ -104,11 +103,9 @@ export async function updatePart(id: string, payload: Partial<PartPayload>) {
   return serializePart(updated);
 }
 
-export async function toggleArchivePart(id: string, archived: boolean) {
-  const part = await prisma.part.update({
-    where: { id },
-    data: { archived },
-  });
+export async function toggleArchivePart(userId: string, id: string, archived: boolean) {
+  await getPartById(userId, id);
+  const part = await prisma.part.update({ where: { id }, data: { archived } });
 
   return serializePart(part);
 }

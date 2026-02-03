@@ -3,8 +3,11 @@ import { z } from 'zod';
 
 import { prisma } from '../db/prisma';
 import { toJsonArray } from '../utils/json';
+import { authenticate } from '../middleware/auth';
 
 export const backupRouter = Router();
+
+backupRouter.use(authenticate);
 
 const DEFAULT_PART_ARCHETYPE = 'BALANCE';
 
@@ -76,12 +79,13 @@ const normalizeQueryValue = (value: unknown): string | undefined => {
   return typeof value === 'string' ? value : undefined;
 };
 
-backupRouter.get('/json', async (_req, res) => {
+backupRouter.get('/json', async (req, res) => {
+  const userId = req.user!.id;
   const [parts, arenas, combos, battles] = await Promise.all([
-    prisma.part.findMany(),
-    prisma.arena.findMany(),
-    prisma.combo.findMany(),
-    prisma.battle.findMany(),
+    prisma.part.findMany({ where: { userId } }),
+    prisma.arena.findMany({ where: { userId } }),
+    prisma.combo.findMany({ where: { userId } }),
+    prisma.battle.findMany({ where: { userId } }),
   ]);
 
   res.json({
@@ -105,18 +109,20 @@ backupRouter.post('/json', async (req, res) => {
   const mergeParam = normalizeQueryValue(req.query.merge)?.toLowerCase();
   const replaceMode = modeParam === 'replace' || mergeParam === 'false';
   const appendMode = !replaceMode;
+  const userId = req.user!.id;
 
   await prisma.$transaction(async (tx) => {
     if (!appendMode) {
-      await tx.battle.deleteMany();
-      await tx.combo.deleteMany();
-      await tx.arena.deleteMany();
-      await tx.part.deleteMany();
+      await tx.battle.deleteMany({ where: { userId } });
+      await tx.combo.deleteMany({ where: { userId } });
+      await tx.arena.deleteMany({ where: { userId } });
+      await tx.part.deleteMany({ where: { userId } });
     }
 
     for (const part of payload.parts) {
       const archetype = part.archetype ?? DEFAULT_PART_ARCHETYPE;
       const data = {
+        userId,
         id: part.id,
         name: part.name,
         type: part.type as any,
@@ -140,6 +146,7 @@ backupRouter.post('/json', async (req, res) => {
 
     for (const arena of payload.arenas) {
       const data = {
+        userId,
         id: arena.id,
         name: arena.name,
         model: arena.model,
@@ -159,6 +166,7 @@ backupRouter.post('/json', async (req, res) => {
 
     for (const combo of payload.combos) {
       const data = {
+        userId,
         id: combo.id,
         name: combo.name,
         bladeId: combo.bladeId,
@@ -184,6 +192,7 @@ backupRouter.post('/json', async (req, res) => {
 
     for (const battle of payload.battles) {
       const data = {
+        userId,
         id: battle.id,
         comboAId: battle.comboAId,
         comboBId: battle.comboBId,
@@ -236,8 +245,8 @@ function toCsv(data: Record<string, unknown>[], headers: string[]) {
   return lines.join('\n');
 }
 
-backupRouter.get('/parts.csv', async (_req, res) => {
-  const parts = await prisma.part.findMany();
+backupRouter.get('/parts.csv', async (req, res) => {
+  const parts = await prisma.part.findMany({ where: { userId: req.user!.id } });
   const csv = toCsv(parts as unknown as Record<string, unknown>[], [
     'id',
     'name',
@@ -254,8 +263,8 @@ backupRouter.get('/parts.csv', async (_req, res) => {
   res.send(csv);
 });
 
-backupRouter.get('/battles.csv', async (_req, res) => {
-  const battles = await prisma.battle.findMany();
+backupRouter.get('/battles.csv', async (req, res) => {
+  const battles = await prisma.battle.findMany({ where: { userId: req.user!.id } });
   const csv = toCsv(battles as any, [
     'id',
     'comboAId',

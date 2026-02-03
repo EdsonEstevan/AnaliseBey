@@ -72,16 +72,16 @@ const serializeDeck = (deck: DeckWithRelations) => ({
   })),
 });
 
-async function ensureDeck(id: string) {
-  const deck = await prisma.deck.findUnique({ where: { id }, include: deckInclude });
+async function ensureDeck(userId: string, id: string) {
+  const deck = await prisma.deck.findFirst({ where: { id, userId }, include: deckInclude });
   if (!deck) {
     throw notFound('Deck não encontrado.');
   }
   return deck;
 }
 
-async function ensureComboExists(id: string) {
-  const combo = await prisma.combo.findUnique({ where: { id } });
+async function ensureComboExists(userId: string, id: string) {
+  const combo = await prisma.combo.findFirst({ where: { id, userId } });
   if (!combo) {
     throw badRequest(`Combo ${id} não existe.`);
   }
@@ -91,8 +91,8 @@ async function ensureComboExists(id: string) {
   return combo.id;
 }
 
-async function ensureBladerExists(id: string) {
-  const blader = await prisma.blader.findUnique({ where: { id } });
+async function ensureBladerExists(userId: string, id: string) {
+  const blader = await prisma.blader.findFirst({ where: { id, userId } });
   if (!blader) {
     throw badRequest(`Blader ${id} não existe.`);
   }
@@ -109,32 +109,34 @@ function assertUniqueComboIds(comboIds: string[]) {
   });
 }
 
-export async function listDecks() {
+export async function listDecks(userId: string) {
   const decks = await prisma.deck.findMany({
+    where: { userId },
     orderBy: { updatedAt: 'desc' },
     include: deckInclude,
   });
   return decks.map(serializeDeck);
 }
 
-export async function getDeck(id: string) {
-  const deck = await ensureDeck(id);
+export async function getDeck(userId: string, id: string) {
+  const deck = await ensureDeck(userId, id);
   return serializeDeck(deck);
 }
 
-export async function createDeck(payload: DeckPayload) {
+export async function createDeck(userId: string, payload: DeckPayload) {
   const comboIds = payload.comboIds.map((comboId) => comboId.trim()).filter(Boolean);
   assertUniqueComboIds(comboIds);
-  await Promise.all(comboIds.map((comboId) => ensureComboExists(comboId)));
+  await Promise.all(comboIds.map((comboId) => ensureComboExists(userId, comboId)));
   const bladerId = payload.bladerId?.trim() || null;
   if (bladerId) {
-    await ensureBladerExists(bladerId);
+    await ensureBladerExists(userId, bladerId);
   }
   const inferredTurns = payload.maxTurns ?? Math.max(3, comboIds.length);
   const maxTurns = Math.min(7, Math.max(3, inferredTurns));
 
   const deck = await prisma.deck.create({
     data: {
+      userId,
       name: payload.name,
       side: payload.side ?? null,
       notes: payload.notes ?? null,
@@ -153,8 +155,8 @@ export async function createDeck(payload: DeckPayload) {
   return serializeDeck(deck);
 }
 
-export async function updateDeck(id: string, payload: Partial<DeckPayload>) {
-  const existing = await ensureDeck(id);
+export async function updateDeck(userId: string, id: string, payload: Partial<DeckPayload>) {
+  const existing = await ensureDeck(userId, id);
 
   const data: Prisma.DeckUpdateInput = {};
   if (payload.name !== undefined) data.name = payload.name;
@@ -163,7 +165,7 @@ export async function updateDeck(id: string, payload: Partial<DeckPayload>) {
   if (payload.bladerId !== undefined) {
     const bladerId = payload.bladerId?.trim() || null;
     if (bladerId) {
-      await ensureBladerExists(bladerId);
+      await ensureBladerExists(userId, bladerId);
     }
     data.blader = bladerId
       ? { connect: { id: bladerId } }
@@ -177,7 +179,7 @@ export async function updateDeck(id: string, payload: Partial<DeckPayload>) {
   const comboIds = payload.comboIds?.map((comboId) => comboId.trim()).filter(Boolean);
   if (comboIds && comboIds.length > 0) {
     assertUniqueComboIds(comboIds);
-    await Promise.all(comboIds.map((comboId) => ensureComboExists(comboId)));
+    await Promise.all(comboIds.map((comboId) => ensureComboExists(userId, comboId)));
     const currentTurns = typeof data.maxTurns === 'number' ? (data.maxTurns as number) : existing.maxTurns;
     const desiredTurns = payload.maxTurns ?? currentTurns ?? 3;
     const normalizedTurns = Math.min(7, Math.max(desiredTurns, comboIds.length, 3));
@@ -195,7 +197,7 @@ export async function updateDeck(id: string, payload: Partial<DeckPayload>) {
       await tx.deck.update({ where: { id }, data });
     });
 
-    const refreshed = await ensureDeck(id);
+    const refreshed = await ensureDeck(userId, id);
     return serializeDeck(refreshed);
   }
 
@@ -203,10 +205,7 @@ export async function updateDeck(id: string, payload: Partial<DeckPayload>) {
   return serializeDeck(updated);
 }
 
-export async function deleteDeck(id: string) {
-  try {
-    await prisma.deck.delete({ where: { id } });
-  } catch (err) {
-    throw notFound('Deck não encontrado.');
-  }
+export async function deleteDeck(userId: string, id: string) {
+  await ensureDeck(userId, id);
+  await prisma.deck.delete({ where: { id } });
 }

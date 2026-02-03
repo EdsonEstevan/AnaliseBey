@@ -352,13 +352,17 @@ function computeArchetypeSummary(values: PartAccumulator[]) {
   }));
 }
 
-export async function getPartsAnalytics(filters: PartsAnalyticsFilters): Promise<PartsAnalyticsResponse> {
+export async function getPartsAnalytics(
+  userId: string,
+  filters: PartsAnalyticsFilters,
+): Promise<PartsAnalyticsResponse> {
   const [parts, combos, battles] = await Promise.all([
     prisma.part.findMany({
+      where: { userId },
       select: { id: true, name: true, type: true, archetype: true, variant: true, weight: true },
     }),
-    prisma.combo.findMany({ include: comboPartsInclude }),
-    prisma.battle.findMany({ include: battleInclude }),
+    prisma.combo.findMany({ where: { userId }, include: comboPartsInclude }),
+    prisma.battle.findMany({ where: { userId }, include: battleInclude }),
   ]);
 
   const partLookup = new Map<string, PartInfo>(

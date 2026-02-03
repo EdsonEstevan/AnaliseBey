@@ -12,39 +12,42 @@ import {
   listBattles,
   updateBattle,
 } from '../modules/battles/battles.service';
+import { authenticate } from '../middleware/auth';
 
 export const battlesRouter = Router();
 
+battlesRouter.use(authenticate);
+
 battlesRouter.get('/', async (req, res) => {
   const filters = battleFiltersSchema.partial().parse(req.query);
-  const battles = await listBattles(filters);
+  const battles = await listBattles(req.user!.id, filters);
   res.json(battles);
 });
 
 battlesRouter.post('/', async (req, res) => {
   const payload = battleBodySchema.parse(req.body);
-  const battle = await createBattle(payload);
+  const battle = await createBattle(req.user!.id, payload);
   res.status(201).json(battle);
 });
 
 battlesRouter.post('/bulk', async (req, res) => {
   const schema = battleBodySchema.array();
-  const battles = await bulkCreateBattles(schema.parse(req.body));
+  const battles = await bulkCreateBattles(req.user!.id, schema.parse(req.body));
   res.status(201).json({ count: battles.length, battles });
 });
 
 battlesRouter.get('/:id', async (req, res) => {
-  const battle = await getBattle(req.params.id);
+  const battle = await getBattle(req.user!.id, req.params.id);
   res.json(battle);
 });
 
 battlesRouter.put('/:id', async (req, res) => {
   const payload = battleBodySchema.partial().parse(req.body);
-  const battle = await updateBattle(req.params.id, payload);
+  const battle = await updateBattle(req.user!.id, req.params.id, payload);
   res.json(battle);
 });
 
 battlesRouter.delete('/:id', async (req, res) => {
-  await deleteBattle(req.params.id);
+  await deleteBattle(req.user!.id, req.params.id);
   res.status(204).end();
 });

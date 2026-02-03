@@ -126,41 +126,45 @@ function serializeBlader(blader: BladerWithRelations) {
   };
 }
 
-async function ensureBlader(id: string) {
-  const blader = await prisma.blader.findUnique({ where: { id }, include: bladerInclude });
+async function ensureBlader(userId: string, id: string) {
+  const blader = await prisma.blader.findFirst({ where: { id, userId }, include: bladerInclude });
   if (!blader) {
     throw notFound('Blader não encontrado.');
   }
   return blader;
 }
 
-export async function listBladers() {
+export async function listBladers(userId: string) {
   const bladers = await prisma.blader.findMany({
+    where: { userId },
     orderBy: { updatedAt: 'desc' },
     include: bladerInclude,
   });
   return bladers.map(serializeBlader);
 }
 
-export async function getBlader(id: string) {
-  const blader = await ensureBlader(id);
+export async function getBlader(userId: string, id: string) {
+  const blader = await ensureBlader(userId, id);
   return serializeBlader(blader);
 }
 
-export async function createBlader(payload: BladerPayload) {
+export async function createBlader(userId: string, payload: BladerPayload) {
   const data = normalizePayload(payload);
   if (!data.name) {
     throw badRequest('Nome é obrigatório.');
   }
   const blader = await prisma.blader.create({
-    data,
+    data: {
+      ...data,
+      userId,
+    },
     include: bladerInclude,
   });
   return serializeBlader(blader);
 }
 
-export async function updateBlader(id: string, payload: Partial<BladerPayload>) {
-  const existing = await prisma.blader.findUnique({ where: { id } });
+export async function updateBlader(userId: string, id: string, payload: Partial<BladerPayload>) {
+  const existing = await prisma.blader.findFirst({ where: { id, userId } });
   if (!existing) {
     throw notFound('Blader não encontrado.');
   }
@@ -180,17 +184,14 @@ export async function updateBlader(id: string, payload: Partial<BladerPayload>) 
   return serializeBlader(blader);
 }
 
-export async function deleteBlader(id: string) {
+export async function deleteBlader(userId: string, id: string) {
   const [deckCount, battleCount] = await Promise.all([
-    prisma.deck.count({ where: { bladerId: id } }),
-    prisma.battle.count({ where: { OR: [{ bladerAId: id }, { bladerBId: id }] } }),
+    prisma.deck.count({ where: { bladerId: id, userId } }),
+    prisma.battle.count({ where: { userId, OR: [{ bladerAId: id }, { bladerBId: id }] } }),
   ]);
   if (deckCount > 0 || battleCount > 0) {
     throw badRequest('Não é possível remover um blader vinculado a decks ou batalhas.');
   }
-  try {
-    await prisma.blader.delete({ where: { id } });
-  } catch (err) {
-    throw notFound('Blader não encontrado.');
-  }
+  await ensureBlader(userId, id);
+  await prisma.blader.delete({ where: { id } });
 }

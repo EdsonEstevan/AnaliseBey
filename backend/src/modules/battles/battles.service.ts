@@ -178,16 +178,16 @@ const serializeBattle = (battle: BattleWithRelations) => ({
   turns: parseBattleTurns(battle.turns as Prisma.JsonValue),
 });
 
-async function ensureCombo(id: string) {
-  const combo = await prisma.combo.findUnique({ where: { id } });
+async function ensureCombo(userId: string, id: string) {
+  const combo = await prisma.combo.findFirst({ where: { id, userId } });
   if (!combo) {
     throw badRequest(`Combo ${id} não existe.`);
   }
   return combo;
 }
 
-async function ensureBlader(id: string) {
-  const blader = await prisma.blader.findUnique({ where: { id } });
+async function ensureBlader(userId: string, id: string) {
+  const blader = await prisma.blader.findFirst({ where: { id, userId } });
   if (!blader) {
     throw badRequest(`Blader ${id} não existe.`);
   }
@@ -203,8 +203,9 @@ export type BattleFilters = {
   limit?: number;
 };
 
-export async function listBattles(filters: BattleFilters = {}) {
+export async function listBattles(userId: string, filters: BattleFilters = {}) {
   const where: Prisma.BattleWhereInput = {
+    userId,
     arenaId: filters.arenaId,
     result: filters.result,
     mode: filters.mode,
@@ -237,9 +238,9 @@ export async function listBattles(filters: BattleFilters = {}) {
   return battles.map(serializeBattle);
 }
 
-export async function getBattle(id: string) {
-  const battle = await prisma.battle.findUnique({
-    where: { id },
+export async function getBattle(userId: string, id: string) {
+  const battle = await prisma.battle.findFirst({
+    where: { id, userId },
     include: battleInclude,
   });
   if (!battle) {
@@ -248,18 +249,18 @@ export async function getBattle(id: string) {
   return serializeBattle(battle);
 }
 
-export async function createBattle(payload: BattlePayload) {
+export async function createBattle(userId: string, payload: BattlePayload) {
   if (payload.comboAId === payload.comboBId) {
     throw badRequest('Uma batalha precisa de dois combos diferentes.');
   }
   const [comboA, comboB] = await Promise.all([
-    ensureCombo(payload.comboAId),
-    ensureCombo(payload.comboBId),
+    ensureCombo(userId, payload.comboAId),
+    ensureCombo(userId, payload.comboBId),
   ]);
   const [bladerAId, bladerBId] = [normalizeBladerId(payload.bladerAId), normalizeBladerId(payload.bladerBId)];
   await Promise.all([
-    bladerAId ? ensureBlader(bladerAId) : null,
-    bladerBId ? ensureBlader(bladerBId) : null,
+    bladerAId ? ensureBlader(userId, bladerAId) : null,
+    bladerBId ? ensureBlader(userId, bladerBId) : null,
   ]);
 
   const turns = sanitizeTurns(payload.turns);
@@ -267,6 +268,7 @@ export async function createBattle(payload: BattlePayload) {
 
   const battle = await prisma.battle.create({
     data: {
+      userId,
       comboAId: comboA.id,
       comboBId: comboB.id,
       bladerAId,
@@ -285,17 +287,17 @@ export async function createBattle(payload: BattlePayload) {
   return serializeBattle(battle);
 }
 
-export async function updateBattle(id: string, payload: Partial<BattlePayload>) {
-  const existing = await prisma.battle.findUnique({ where: { id } });
+export async function updateBattle(userId: string, id: string, payload: Partial<BattlePayload>) {
+  const existing = await prisma.battle.findFirst({ where: { id, userId } });
   if (!existing) {
     throw notFound('Batalha não encontrada.');
   }
 
   if (payload.comboAId) {
-    await ensureCombo(payload.comboAId);
+    await ensureCombo(userId, payload.comboAId);
   }
   if (payload.comboBId) {
-    await ensureCombo(payload.comboBId);
+    await ensureCombo(userId, payload.comboBId);
   }
   const normalizedBladerAId =
     payload.bladerAId !== undefined ? normalizeBladerId(payload.bladerAId) : undefined;
@@ -303,8 +305,8 @@ export async function updateBattle(id: string, payload: Partial<BattlePayload>) 
     payload.bladerBId !== undefined ? normalizeBladerId(payload.bladerBId) : undefined;
 
   await Promise.all([
-    normalizedBladerAId ? ensureBlader(normalizedBladerAId) : null,
-    normalizedBladerBId ? ensureBlader(normalizedBladerBId) : null,
+    normalizedBladerAId ? ensureBlader(userId, normalizedBladerAId) : null,
+    normalizedBladerBId ? ensureBlader(userId, normalizedBladerBId) : null,
   ]);
 
   const turnsProvided = payload.turns !== undefined;
@@ -338,22 +340,19 @@ export async function updateBattle(id: string, payload: Partial<BattlePayload>) 
   return serializeBattle(battle);
 }
 
-export async function bulkCreateBattles(items: BattlePayload[]) {
+export async function bulkCreateBattles(userId: string, items: BattlePayload[]) {
   if (items.length === 0) {
     throw badRequest('Nenhuma batalha informada.');
   }
   const created = [];
   for (const payload of items) {
-    const battle = await createBattle(payload);
+    const battle = await createBattle(userId, payload);
     created.push(battle);
   }
   return created;
 }
 
-export async function deleteBattle(id: string) {
-  try {
-    await prisma.battle.delete({ where: { id } });
-  } catch (err) {
-    throw notFound('Batalha não encontrada.');
-  }
+export async function deleteBattle(userId: string, id: string) {
+  await getBattle(userId, id);
+  await prisma.battle.delete({ where: { id } });
 }

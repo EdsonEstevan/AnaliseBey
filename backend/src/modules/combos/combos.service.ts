@@ -34,16 +34,20 @@ const serializeCombo = (combo: ComboWithParts) => ({
   lockChip: normalizePart(combo.lockChip),
 });
 
-async function fetchPartOrThrow(partId: string) {
-  const part = await prisma.part.findUnique({ where: { id: partId } });
+async function fetchPartOrThrow(userId: string, partId: string) {
+  const part = await prisma.part.findFirst({ where: { id: partId, userId } });
   if (!part) {
     throw badRequest(`Peça ${partId} não encontrada.`);
   }
   return part;
 }
 
-async function ensurePartMatchesType(partId: string, expected: PartType | PartType[]) {
-  const part = await fetchPartOrThrow(partId);
+async function ensurePartMatchesType(
+  userId: string,
+  partId: string,
+  expected: PartType | PartType[],
+) {
+  const part = await fetchPartOrThrow(userId, partId);
   const allowed = Array.isArray(expected) ? expected : [expected];
   if (!allowed.includes(part.type as PartType)) {
     const label = allowed.length === 1 ? allowed[0] : allowed.join(' ou ');
@@ -210,8 +214,9 @@ export type ComboFilters = {
   search?: string;
 };
 
-export async function listCombos(filters: ComboFilters = {}) {
+export async function listCombos(userId: string, filters: ComboFilters = {}) {
   const where: Prisma.ComboWhereInput = {
+    userId,
     status: filters.status,
     archetype: filters.archetype,
   };
@@ -230,9 +235,9 @@ export async function listCombos(filters: ComboFilters = {}) {
   return combos.map(serializeCombo);
 }
 
-export async function getCombo(id: string) {
-  const combo = await prisma.combo.findUnique({
-    where: { id },
+export async function getCombo(userId: string, id: string) {
+  const combo = await prisma.combo.findFirst({
+    where: { id, userId },
     include: comboInclude,
   });
   if (!combo) {
@@ -241,18 +246,18 @@ export async function getCombo(id: string) {
   return serializeCombo(combo);
 }
 
-export async function createCombo(payload: ComboPayload) {
+export async function createCombo(userId: string, payload: ComboPayload) {
   const [blade, ratchet, bit] = await Promise.all([
-    ensurePartMatchesType(payload.bladeId, 'BLADE'),
-    ensurePartMatchesType(payload.ratchetId, ['RATCHET', 'RATCHET_BIT']),
-    ensurePartMatchesType(payload.bitId, ['BIT', 'RATCHET_BIT']),
+    ensurePartMatchesType(userId, payload.bladeId, 'BLADE'),
+    ensurePartMatchesType(userId, payload.ratchetId, ['RATCHET', 'RATCHET_BIT']),
+    ensurePartMatchesType(userId, payload.bitId, ['BIT', 'RATCHET_BIT']),
   ]);
 
   const assistBlade = payload.assistBladeId
-    ? await ensurePartMatchesType(payload.assistBladeId, 'ASSIST')
+    ? await ensurePartMatchesType(userId, payload.assistBladeId, 'ASSIST')
     : null;
   const lockChip = payload.lockChipId
-    ? await ensurePartMatchesType(payload.lockChipId, 'LOCK_CHIP')
+    ? await ensurePartMatchesType(userId, payload.lockChipId, 'LOCK_CHIP')
     : null;
 
   ensureIntegratedPairing(blade, ratchet, bit);
@@ -265,6 +270,7 @@ export async function createCombo(payload: ComboPayload) {
 
   const combo = await prisma.combo.create({
     data: {
+      userId,
       name,
       bladeId: blade.id,
       ratchetId: ratchet.id,
@@ -283,8 +289,8 @@ export async function createCombo(payload: ComboPayload) {
   return serializeCombo(combo);
 }
 
-export async function updateCombo(id: string, payload: Partial<ComboPayload>) {
-  const existing = await prisma.combo.findUnique({ where: { id } });
+export async function updateCombo(userId: string, id: string, payload: Partial<ComboPayload>) {
+  const existing = await prisma.combo.findFirst({ where: { id, userId } });
   if (!existing) {
     throw notFound('Combo não encontrado.');
   }
@@ -297,24 +303,24 @@ export async function updateCombo(id: string, payload: Partial<ComboPayload>) {
   const lockChipId = payload.lockChipId === undefined ? existing.lockChipId : payload.lockChipId;
 
   const [blade, ratchet, bit] = await Promise.all([
-    payload.bladeId ? ensurePartMatchesType(bladeId, 'BLADE') : fetchPartOrThrow(bladeId),
+    payload.bladeId ? ensurePartMatchesType(userId, bladeId, 'BLADE') : fetchPartOrThrow(userId, bladeId),
     payload.ratchetId
-      ? ensurePartMatchesType(ratchetId, ['RATCHET', 'RATCHET_BIT'])
-      : fetchPartOrThrow(ratchetId),
+      ? ensurePartMatchesType(userId, ratchetId, ['RATCHET', 'RATCHET_BIT'])
+      : fetchPartOrThrow(userId, ratchetId),
     payload.bitId
-      ? ensurePartMatchesType(bitId, ['BIT', 'RATCHET_BIT'])
-      : fetchPartOrThrow(bitId),
+      ? ensurePartMatchesType(userId, bitId, ['BIT', 'RATCHET_BIT'])
+      : fetchPartOrThrow(userId, bitId),
   ]);
 
   const assistBlade = assistBladeId
     ? payload.assistBladeId !== undefined
-      ? await ensurePartMatchesType(assistBladeId, 'ASSIST')
-      : await fetchPartOrThrow(assistBladeId)
+      ? await ensurePartMatchesType(userId, assistBladeId, 'ASSIST')
+      : await fetchPartOrThrow(userId, assistBladeId)
     : null;
   const lockChip = lockChipId
     ? payload.lockChipId !== undefined
-      ? await ensurePartMatchesType(lockChipId, 'LOCK_CHIP')
-      : await fetchPartOrThrow(lockChipId)
+      ? await ensurePartMatchesType(userId, lockChipId, 'LOCK_CHIP')
+      : await fetchPartOrThrow(userId, lockChipId)
     : null;
 
   ensureIntegratedPairing(blade, ratchet, bit);
@@ -346,7 +352,8 @@ export async function updateCombo(id: string, payload: Partial<ComboPayload>) {
   return serializeCombo(combo);
 }
 
-export async function changeComboStatus(id: string, status: ComboStatus) {
+export async function changeComboStatus(userId: string, id: string, status: ComboStatus) {
+  await getCombo(userId, id);
   const combo = await prisma.combo.update({
     where: { id },
     data: { status },
@@ -355,11 +362,12 @@ export async function changeComboStatus(id: string, status: ComboStatus) {
   return serializeCombo(combo);
 }
 
-export async function duplicateCombo(id: string) {
-  const combo = await getCombo(id);
+export async function duplicateCombo(userId: string, id: string) {
+  const combo = await getCombo(userId, id);
   const name = buildComboName(combo.blade, combo.ratchet, combo.bit);
   const clone = await prisma.combo.create({
     data: {
+      userId,
       name,
       bladeId: combo.bladeId,
       ratchetId: combo.ratchetId,
@@ -378,9 +386,10 @@ export async function duplicateCombo(id: string) {
   return serializeCombo(clone);
 }
 
-export async function listComboBattles(id: string) {
+export async function listComboBattles(userId: string, id: string) {
   const battles = await prisma.battle.findMany({
     where: {
+      userId,
       OR: [{ comboAId: id }, { comboBId: id }],
     },
     include: {

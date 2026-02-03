@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
+import { authenticate } from '../middleware/auth';
+
 export const syncRouter = Router();
+
+syncRouter.use(authenticate);
 
 const syncPayloadSchema = z.object({
   clientId: z.string(),

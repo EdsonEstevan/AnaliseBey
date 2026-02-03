@@ -12,12 +12,15 @@ import {
 } from '../modules/combos/combos.service';
 import { comboBodySchema, comboFiltersSchema } from '../modules/combos/combos.schema';
 import { Archetypes, ComboStatuses } from '../types/enums';
+import { authenticate } from '../middleware/auth';
 
 export const combosRouter = Router();
 
+combosRouter.use(authenticate);
+
 combosRouter.get('/', async (req, res) => {
   const filters = comboFiltersSchema.partial().parse(req.query);
-  const combos = await listCombos(filters);
+  const combos = await listCombos(req.user!.id, filters);
   res.json(combos);
 });
 
@@ -29,35 +32,35 @@ combosRouter.get('/metadata', (_req, res) => {
 });
 
 combosRouter.get('/:id', async (req, res) => {
-  const combo = await getCombo(req.params.id);
+  const combo = await getCombo(req.user!.id, req.params.id);
   res.json(combo);
 });
 
 combosRouter.get('/:id/battles', async (req, res) => {
-  const battles = await listComboBattles(req.params.id);
+  const battles = await listComboBattles(req.user!.id, req.params.id);
   res.json(battles);
 });
 
 combosRouter.post('/', async (req, res) => {
   const payload = comboBodySchema.parse(req.body);
-  const combo = await createCombo(payload);
+  const combo = await createCombo(req.user!.id, payload);
   res.status(201).json(combo);
 });
 
 combosRouter.put('/:id', async (req, res) => {
   const payload = comboBodySchema.partial().parse(req.body);
-  const combo = await updateCombo(req.params.id, payload);
+  const combo = await updateCombo(req.user!.id, req.params.id, payload);
   res.json(combo);
 });
 
 combosRouter.patch('/:id/status', async (req, res) => {
   const schema = z.object({ status: z.enum(ComboStatuses) });
   const { status } = schema.parse(req.body);
-  const combo = await changeComboStatus(req.params.id, status);
+  const combo = await changeComboStatus(req.user!.id, req.params.id, status);
   res.json(combo);
 });
 
 combosRouter.post('/:id/duplicate', async (req, res) => {
-  const combo = await duplicateCombo(req.params.id);
+  const combo = await duplicateCombo(req.user!.id, req.params.id);
   res.status(201).json(combo);
 });

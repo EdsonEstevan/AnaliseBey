@@ -14,8 +14,26 @@ enum BattleMode {
   CUSTOM
 }
 
+enum UserRole {
+  ADMIN
+  MEMBER
+  VISITOR
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+}
+
+enum AccessKeyStatus {
+  AVAILABLE
+  CLAIMED
+  REVOKED
+}
+
 model Part {
   id        String   @id @default(cuid())
+  userId    String
   name      String
   type      String
   variant   String?
@@ -29,15 +47,20 @@ model Part {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  user User @relation(fields: [userId], references: [id])
+
   combosAsBlade    Combo[] @relation("Blade")
   combosAsRatchet  Combo[] @relation("Ratchet")
   combosAsBit      Combo[] @relation("Bit")
   combosAsAssist   Combo[] @relation("AssistBlade")
   combosAsLockChip Combo[] @relation("LockChip")
+
+  @@index([userId])
 }
 
 model Arena {
   id        String   @id @default(cuid())
+  userId    String
   name      String
   model     String?
   tags      String?  @default("[]")
@@ -45,11 +68,15 @@ model Arena {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  user User   @relation(fields: [userId], references: [id])
   battles Battle[]
+
+  @@index([userId])
 }
 
 model Combo {
   id           String   @id @default(cuid())
+  userId       String
   name         String
   bladeId      String
   ratchetId    String
@@ -65,6 +92,8 @@ model Combo {
   updatedAt DateTime @updatedAt
   status    String   @default("ACTIVE")
 
+  user        User  @relation(fields: [userId], references: [id])
+
   blade       Part  @relation("Blade", fields: [bladeId], references: [id])
   ratchet     Part  @relation("Ratchet", fields: [ratchetId], references: [id])
   bit         Part  @relation("Bit", fields: [bitId], references: [id])
@@ -74,10 +103,13 @@ model Combo {
   battlesAsComboA Battle[] @relation("ComboA")
   battlesAsComboB Battle[] @relation("ComboB")
   deckSlots      DeckSlot[]
+
+  @@index([userId])
 }
 
 model Battle {
   id          String   @id @default(cuid())
+  userId      String
   comboAId    String
   comboBId    String
   bladerAId   String?
@@ -93,15 +125,19 @@ model Battle {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  user   User  @relation(fields: [userId], references: [id])
   comboA Combo  @relation("ComboA", fields: [comboAId], references: [id])
   comboB Combo  @relation("ComboB", fields: [comboBId], references: [id])
   bladerA Blader? @relation("BladerA", fields: [bladerAId], references: [id])
   bladerB Blader? @relation("BladerB", fields: [bladerBId], references: [id])
   arena  Arena?  @relation(fields: [arenaId], references: [id])
+
+  @@index([userId])
 }
 
 model Deck {
   id        String     @id @default(cuid())
+  userId    String
   name      String
   side      String?
   notes     String?
@@ -110,8 +146,11 @@ model Deck {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
+  user   User   @relation(fields: [userId], references: [id])
   blader Blader?  @relation(fields: [bladerId], references: [id])
   slots DeckSlot[]
+
+  @@index([userId])
 }
 
 model DeckSlot {
@@ -130,6 +169,7 @@ model DeckSlot {
 
 model Blader {
   id        String   @id @default(cuid())
+  userId    String
   name      String
   nickname  String?
   age       Int?
@@ -139,13 +179,17 @@ model Blader {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  user         User    @relation(fields: [userId], references: [id])
   decks        Deck[]
   battlesAsA   Battle[] @relation("BladerA")
   battlesAsB   Battle[] @relation("BladerB")
+
+  @@index([userId])
 }
 
 model AssistantSession {
   id         String  @id @default(cuid())
+  userId     String
   label      String?
   lastRoute  String?
   context    Json?
@@ -153,6 +197,10 @@ model AssistantSession {
   updatedAt  DateTime @updatedAt
   messages   AssistantMessage[]
   missions   AssistantMission[]
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model AssistantMessage {
@@ -184,4 +232,46 @@ model AssistantMission {
   session AssistantSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
+}
+
+model User {
+  id        String     @id @default(cuid())
+  name      String
+  username  String     @unique
+  passwordHash String?
+  passwordNote String?
+  role      UserRole   @default(MEMBER)
+  status    UserStatus @default(ACTIVE)
+  battleMilestone Int  @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  parts     Part[]
+  arenas    Arena[]
+  combos    Combo[]
+  battles   Battle[]
+  decks     Deck[]
+  bladers   Blader[]
+  assistantSessions AssistantSession[]
+  issuedKeys  AccessKey[] @relation("OwnerKeys")
+  claimedKeys AccessKey[] @relation("ClaimedKeys")
+}
+
+model AccessKey {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  status      AccessKeyStatus  @default(AVAILABLE)
+  ownerId     String?
+  claimedById String?
+  maxUses     Int              @default(1)
+  uses        Int              @default(0)
+  revokedAt   DateTime?
+  claimedAt   DateTime?
+  createdAt   DateTime         @default(now())
+
+  owner     User? @relation("OwnerKeys", fields: [ownerId], references: [id])
+  claimedBy User? @relation("ClaimedKeys", fields: [claimedById], references: [id])
+
+  @@index([ownerId])
+  @@index([claimedById])
 }

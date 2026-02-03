@@ -5,8 +5,11 @@ import multer from 'multer';
 
 import { badRequest } from '../utils/apiError';
 import { uploadsDir } from '../utils/storage';
+import { authenticate } from '../middleware/auth';
 
 const uploadsRouter = Router();
+
+uploadsRouter.use(authenticate);
 
 const storage = multer.diskStorage({
   destination: (_req, _file, callback) => {
