@@ -76,8 +76,8 @@
           Gerenciar decks
         </RouterLink>
         <p class="text-xs text-slate-500 w-full">
-          Não quer escolher um deck agora? Preencha as 3 batalhas simultâneas e nós geramos e vinculamos o deck
-          automaticamente para cada lado.
+          Não quer escolher um deck agora? Preencha de 3 a {{ MAX_MULTI_BATTLES }} batalhas simultâneas e nós geramos e
+          vinculamos o deck automaticamente para cada lado.
         </p>
       </div>
       <div class="grid gap-4 w-full md:grid-cols-2 mt-4">
@@ -531,6 +531,23 @@
         </article>
 
         <article class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-slate-400">Formato (Mode Dashboard)</p>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <button
+                v-for="option in battleModeOptions"
+                :key="option.value"
+                type="button"
+                class="px-3 py-2 rounded-xl border text-left transition min-w-[170px]"
+                :class="form.mode === option.value ? 'border-primary/70 bg-primary/10 text-white' : 'border-slate-800 text-slate-400 hover:border-primary/40'"
+                :disabled="isView"
+                @click="form.mode = option.value"
+              >
+                <p class="text-sm font-semibold">{{ option.label }}</p>
+                <p class="text-[11px] text-slate-400">{{ option.helper }}</p>
+              </button>
+            </div>
+          </div>
           <label class="text-sm">
             <span class="text-slate-400">Arena</span>
             <select v-model="form.arenaId" class="input mt-1" :disabled="isView">
@@ -559,7 +576,7 @@
         <div>
           <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Simultâneo</p>
           <h3 class="text-2xl font-semibold">Console 3on3</h3>
-          <p class="text-sm text-slate-400">Gerencie até 3 batalhas em paralelo usando os decks selecionados.</p>
+          <p class="text-sm text-slate-400">Gerencie até {{ MAX_MULTI_BATTLES }} batalhas em paralelo usando os decks selecionados.</p>
         </div>
         <span class="text-xs text-slate-500">{{ multiBattles.length }} / {{ MAX_MULTI_BATTLES }} batalhas</span>
       </header>
@@ -577,6 +594,7 @@
               <span :class="['text-xs uppercase font-semibold', resultColor(battle.winner)]">
                 {{ resultLabel(battle.winner) }}
               </span>
+              <p class="text-[11px] text-slate-500 mt-1">Formato: {{ modeLabel(battle.mode) }}</p>
             </div>
             <button
               v-if="multiBattles.length > 1"
@@ -628,6 +646,14 @@
             </div>
           </div>
 
+          <label class="text-xs uppercase tracking-wide text-slate-500">
+            Formato
+            <select v-model="battle.mode" class="input mt-1">
+              <option v-for="option in battleModeOptions" :key="`multi-mode-${option.value}`" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
           <div class="grid gap-3 sm:grid-cols-2">
             <label class="text-xs uppercase tracking-wide text-slate-500">
               Data
@@ -699,7 +725,21 @@ const route = useRoute();
 const router = useRouter();
 
 const MAX_TURNS = 10;
-const MAX_MULTI_BATTLES = 3;
+const MIN_MULTI_BATTLES = 3;
+const MAX_MULTI_BATTLES = 7;
+const DEFAULT_BATTLE_MODE = 'OFFICIAL_3ON3';
+
+const battleModeOptions = [
+  { value: 'OFFICIAL_3ON3', label: 'Oficial 3on3', helper: 'Deck fechado · 4 pontos' },
+  { value: 'REGIONAL_CIRCUIT', label: 'Torneio Regional', helper: 'Circuito com decks mistos' },
+  { value: 'LONG_TRAINING', label: 'Treino longo', helper: 'Séries estendidas de laboratório' },
+  { value: 'CUSTOM', label: 'Custom', helper: 'Testes livres ou formatos alternativos' },
+];
+
+const battleModeLabels = battleModeOptions.reduce((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {});
 
 const victoryWeights = {
   burstfinish: 2,
@@ -731,6 +771,7 @@ const form = reactive({
   comboAId: '',
   comboBId: '',
   arenaId: '',
+  mode: DEFAULT_BATTLE_MODE,
   occurredAt: new Date().toISOString().slice(0, 10),
   result: 'COMBO_A',
   score: '',
@@ -863,6 +904,7 @@ function createMultiBattleCard(index = 1) {
     notes: '',
     arenaId: '',
     occurredAt: new Date().toISOString().slice(0, 10),
+    mode: DEFAULT_BATTLE_MODE,
   };
 }
 
@@ -893,11 +935,14 @@ function applyDeckSelection(side, deckId) {
   if (deck.blader?.id) {
     bladerSelections[side] = deck.blader.id;
   }
-  const requiredBattles = Math.min(deck.slots.length, MAX_MULTI_BATTLES);
-  while (multiBattles.length < requiredBattles) {
+  const combosRegistered = deck.slots.length || 0;
+  const baseTurns = Math.max(combosRegistered, MIN_MULTI_BATTLES);
+  const configuredTurns = deck.maxTurns ?? baseTurns;
+  const targetTurns = Math.min(MAX_MULTI_BATTLES, Math.max(configuredTurns, baseTurns));
+  while (multiBattles.length < targetTurns) {
     addMultiBattle();
   }
-  deck.slots.slice(0, MAX_MULTI_BATTLES).forEach((slot, index) => {
+  deck.slots.slice(0, targetTurns).forEach((slot, index) => {
     if (!slot || !multiBattles[index]) return;
     if (side === 'A') {
       multiBattles[index].comboAId = slot.comboId;
@@ -941,11 +986,11 @@ function findDeckByCombos(side, comboIds) {
 
 async function maybeCreateDeckFromBattles(side, battles) {
   if (deckSelections[side]) return null;
-  if (battles.length !== MAX_MULTI_BATTLES) return null;
+  if (battles.length < MIN_MULTI_BATTLES) return null;
   const combos = combosForSide(side, battles);
-  const uniqueCombos = Array.from(new Set(combos));
-  if (combos.length !== MAX_MULTI_BATTLES) return null;
-  if (uniqueCombos.length !== MAX_MULTI_BATTLES) return null;
+  if (combos.length < MIN_MULTI_BATTLES) return null;
+  const uniqueCombos = new Set(combos);
+  if (uniqueCombos.size !== combos.length) return null;
   const existing = findDeckByCombos(side, combos);
   if (existing) return existing;
   const sideLabel = side === 'A' ? 'Alpha' : 'Bravo';
@@ -955,6 +1000,7 @@ async function maybeCreateDeckFromBattles(side, battles) {
     side,
     notes: 'Gerado automaticamente pelo console simultâneo',
     comboIds: combos,
+    maxTurns: combos.length,
   });
   return deck;
 }
@@ -1045,6 +1091,10 @@ function resultLabel(code) {
   return '—';
 }
 
+function modeLabel(code) {
+  return battleModeLabels[code] ?? 'Custom';
+}
+
 function resultColor(code) {
   if (code === 'COMBO_A') return 'text-emerald-400';
   if (code === 'COMBO_B') return 'text-rose-400';
@@ -1093,6 +1143,7 @@ function multiBattlePayload(battle) {
     bladerBId: bladerSelections.B || undefined,
     arenaId: battle.arenaId || form.arenaId || undefined,
     result: summary.result,
+    mode: battle.mode || form.mode || DEFAULT_BATTLE_MODE,
     score: summary.score,
     victoryType: battle.victoryType || undefined,
     notes: battle.notes?.trim() || undefined,
@@ -1112,6 +1163,7 @@ async function hydrateBattle(id) {
   form.comboAId = battle.comboAId;
   form.comboBId = battle.comboBId;
   form.arenaId = battle.arena?.id ?? '';
+  form.mode = battle.mode ?? DEFAULT_BATTLE_MODE;
   form.occurredAt = battle.occurredAt ? battle.occurredAt.slice(0, 10) : form.occurredAt;
   form.result = battle.result;
   form.score = battle.score ?? '';
@@ -1279,6 +1331,7 @@ async function saveBattle() {
       bladerBId: bladerSelections.B || undefined,
       arenaId: form.arenaId || undefined,
       result: resultFromTurns.value,
+      mode: form.mode,
       score: scoreFromTurns.value !== '0-0' ? scoreFromTurns.value : form.score || undefined,
       victoryType: victorySummary.value || undefined,
       notes: [form.notes?.trim(), turnsDigest.value].filter(Boolean).join(' | ') || undefined,
@@ -1306,7 +1359,7 @@ async function saveMultiBattles() {
     }
     multiSaving.value = true;
     const autoDecks = [];
-    if (readyBattles.length === MAX_MULTI_BATTLES) {
+    if (readyBattles.length >= MIN_MULTI_BATTLES) {
       const deckA = await maybeCreateDeckFromBattles('A', readyBattles);
       const deckB = await maybeCreateDeckFromBattles('B', readyBattles);
       if (deckA) autoDecks.push(deckA.name);

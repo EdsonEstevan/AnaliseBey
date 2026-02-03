@@ -828,9 +828,36 @@ function extractQuestionFocus(message: string): QuestionFocus {
   return null;
 }
 
+type SmalltalkTopic = 'HELLO' | 'MOOD' | 'PREFERENCE';
+
+const SMALLTALK_GREETINGS = ['oi', 'ola', 'olá', 'e ai', 'eae', 'fala', 'salve', 'bom dia', 'boa tarde', 'boa noite'];
+
+function detectSmalltalkTopic(normalized: string): SmalltalkTopic | null {
+  if (!normalized) return null;
+  const prepared = normalized.replace(/\bvc\b/g, 'voce');
+  if (
+    /(do que voce gosta|o que voce gosta|gosta do que|qual seu hobby|qual seu hobbie|o que voce curte|do que voce curte|o que vc gosta)/.test(
+      prepared,
+    )
+  ) {
+    return 'PREFERENCE';
+  }
+  if (/(como vai|tudo bem|como voce esta|como voce vai|como esta voce|como ta voce)/.test(prepared)) {
+    return 'MOOD';
+  }
+  if (SMALLTALK_GREETINGS.some((greet) => prepared.startsWith(greet))) {
+    return 'HELLO';
+  }
+  return null;
+}
+
 function detectIntent(message: string): AssistantIntent {
   const normalized = normalizeMessage(message);
   if (!normalized) return 'HELLO';
+  const smalltalkTopic = detectSmalltalkTopic(normalized);
+  if (smalltalkTopic === 'HELLO') {
+    return 'HELLO';
+  }
 
   const mentionsCombo = /combo|deck|bey/.test(normalized);
   const asksForRecommendation = /qual|testar|usar|montar|suger|recom/.test(normalized);
@@ -1059,6 +1086,7 @@ function buildAssistantReply(
 ) {
   const normalized = normalizeMessage(message);
   const gratitude = normalized.includes('obrigado') || normalized.includes('valeu');
+  const smalltalkTopic = detectSmalltalkTopic(normalized);
   const lines: string[] = [];
   const activeMission = missions.find((mission) => mission.status === 'ACTIVE');
   const telemetryLine = buildLabTelemetry(stats);
@@ -1072,44 +1100,68 @@ function buildAssistantReply(
     switch (intent) {
       case 'HELLO':
         lines.push(
-          'Bem-vindo de volta ao laboratório. Estou acompanhando decks de 7 turnos, missões e telemetria das batalhas — me diz o próximo experimento e eu já encaixo.',
+          'Oi! Tudo certo por aqui — estou monitorando os formatos do Mode Dashboard (Oficial 3on3, Regional e Treino Longo) e cruzando arena/piloto em tempo real.',
         );
+        lines.push('Me conta o objetivo do treino ou o filtro que quer priorizar e eu já trago o recorte certo.');
         lines.push(buildComboAdvice(stats));
         break;
       case 'COMBO_ADVICE':
         lines.push(buildComboAdvice(stats));
-        lines.push('Se tiver arena, bit ou rival específico, manda ver que eu filtro a recomendação.');
+        lines.push('Me diz modo, arena ou rival específico que eu ajusto a recomendação na hora.');
         break;
       case 'BEST_PERFORMER':
         lines.push(describeBestBeys(stats));
         if (stats.comboLeaders.length) {
           lines.push(
-            `O combo mais quente continua sendo ${stats.comboLeaders[0].name}; se quiser eu comparo contra o meta ou ajusto para outra bit, é só pedir.`,
+            `O combo mais quente continua sendo ${stats.comboLeaders[0].name}; usa os selects de arena e piloto no dashboard para ver se ele se mantém nesses recortes.`,
           );
         }
         break;
       case 'REPORT':
         lines.push(
-          'Os relatórios avançados estão no dashboard → Inteligência de desempenho. Posso destacar peças por winrate, arena ou parceiro — me fala o recorte que precisa.',
+          'Abre o dashboard → Mode Dashboard: lá você alterna os botões de formato, filtra por arena/piloto e salva presets rápidos como “Regional focado em Burst”.',
         );
+        lines.push('Se preferir, me passa o recorte desejado que eu já devolvo o resumo aqui no chat.');
         break;
       case 'REGISTER':
         lines.push(
-          'Para registrar séries longas, abre o Composer, sobe “Turnos na série” para 7 e deixa o placar automático marcar os 4 pontos. Assim eu consigo cruzar performance sem lacunas.',
+          'No Composer deixa “Turnos na série” em 7, escolhe o formato (botões Oficial/Regional/Treino) e informa a arena + pilotos. Assim eu consigo casar os filtros do dashboard com os novos logs.',
         );
         break;
       case 'HELP':
-        lines.push('Posso sugerir combos, revisar missões, explicar peças ou rodar hipóteses. Qual parte do setup está travando?');
+        lines.push(
+          'Posso ajudar a montar combos, destravar missões, ajustar presets do dashboard ou explicar formatos. O que você quer evoluir agora?',
+        );
+        break;
+      case 'BLOCKED':
+        lines.push('Beleza, sinalizei essa missão como bloqueada no painel. Quando resolver o impedimento, avisa que eu reativo.');
+        break;
+      case 'COMPLETE':
+        lines.push('Boa! Marquei a missão como concluída. Se quiser outra meta ou preset pra seguir, é só pedir.');
+        break;
+      case 'SMALLTALK':
+        if (gratitude) {
+          lines.push('Valeu! Fico de olho nos filtros de formato e te aviso quando pintar algo fora da curva.');
+        } else if (smalltalkTopic === 'MOOD') {
+          lines.push('Tudo bem por aqui! Passei a manhã revisando séries longas e configurando presets — pronta para mergulhar em outro relatório quando quiser.');
+        } else if (smalltalkTopic === 'PREFERENCE') {
+          lines.push(
+            'Eu curto quando chegam séries completas: quanto mais turnos, arenas e pilotos você registra, mais certeiras ficam minhas recomendações. É meu “hobby” preferido.',
+          );
+          lines.push('Se quiser, me manda um formato favorito e eu separo alguns beys que combinam com ele.');
+        } else {
+          lines.push('Estou acompanhando os logs recentes e os novos filtros do dashboard. Conta em qual modo ou arena quer focar que eu te devolvo os highlights.');
+        }
         break;
       default:
         if (gratitude) {
-          lines.push('Valeu! Continuo por aqui de olho nos logs. Se quiser outro recorte ou missão, é só chamar.');
+          lines.push('Obrigado pelo retorno! Continuo monitorando as séries e ajustando relatórios.');
         } else {
-          lines.push('Anotei. Estou cruzando o histórico recente para ajustar alertas e sugestões do laboratório.');
+          lines.push('Anotei aqui. Estou cruzando o histórico recente para ajustar alertas e sugestões do laboratório.');
           if (stats.comboLeaders.length) {
             const leader = stats.comboLeaders[0];
             lines.push(
-              `${leader.name} está segurando ${formatWinPercent(leader.winRate)} em ${leader.battles} batalhas — podemos usar ele como baseline para novos testes se fizer sentido.`,
+              `${leader.name} está segurando ${formatWinPercent(leader.winRate)} em ${leader.battles} batalhas — podemos usar como baseline para outro formato quando quiser.`,
             );
           }
         }

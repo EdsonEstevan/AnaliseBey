@@ -7,7 +7,7 @@ Aplicação full-stack para catalogar peças, montar combos, registrar batalhas 
 - **Frontend:** Vite + Vue 3 (JavaScript), Pinia, Vue Router, TailwindCSS custom, Axios.
 - **Backend:** Node.js + Express, Prisma ORM, SQLite (migrável para Postgres), Zod para validação.
 - **Infra:** Workspaces npm, rotas de backup/import JSON/CSV, conectores externos de peças (placeholder), scripts unificados para dev/build/deploy.
-- **Decks 3on3:** console para montar decks de até três combos e aplicar automaticamente nas batalhas simultâneas do compositor.
+- **Decks 3on3:** console para montar decks de até sete combos/turnos e aplicar automaticamente nas batalhas simultâneas do compositor.
 - **Bladers & Equipes:** cadastro completo dos pilotos, associação direta com decks e preenchimento automático nas batalhas para consolidar estatísticas.
 
 ### Bladers e vínculos de batalha
@@ -34,6 +34,19 @@ Aplicação full-stack para catalogar peças, montar combos, registrar batalhas 
 - O Pinia store dedica persitência local da sessão (`lab-assistant-session`) e envia contexto de rota automaticamente; assim a assistente adapta as respostas conforme você abre o Dashboard, Composer ou decks.
 - O painel exibe o chat completo, teclado rápido e o quadro de missões com ações para concluir, bloquear ou retomar tasks — tudo sincronizado com os novos endpoints `/assistant/*` do backend.
 - Decks e Composer já conversam com a assistente via contexto, garantindo que ela monitore quando a série ainda está com menos de 7 slots e proponha metas como “Configurar série até 7 turnos”.
+
+### Mode Dashboard e filtros por formato
+
+- O dashboard ganhou o bloco **Mode Dashboard**, com botões para alternar rapidamente entre os formatos `Oficial 3on3`, `Torneio Regional` e `Treino Longo`, além dos novos selects de arena e piloto para fatiar qualquer relatório.
+- Os filtros também alimentam os cards de métricas, distribuição de vitórias e agregados por batalha/round — tudo recalculado em tempo real conforme você alterna modo, arena ou blader.
+- Dá para salvar até seis presets customizados (armazenados em localStorage) e alternar com um clique; cada preset resume modo selecionado, arena/piloto e intervalo analisado.
+- Ao carregar a página, os presets oficiais vêm prontos (Oficial, Regional e Treino Longo) e servem de atalho para refletir imediatamente as diretrizes do Mode Dashboard.
+
+### Assistente CX com respostas naturais
+
+- O backend ajustou o gerador de respostas para trazer um tom mais natural em português, citando diretamente os novos filtros de formato, arena e piloto quando você pede relatórios.
+- Novos intents tratam agradecimentos, bloqueios e missões concluídas com feedbacks específicos, e a assistente sempre lembra dos presets salvos e do bloco Mode Dashboard quando o contexto é o dashboard.
+- As mensagens de boas-vindas e de ajuda agora sugerem explicitamente que você me peça recortes por formato ou que registre arenas/pilotos ao subir uma série — garantindo que a conversa reflita os novos recursos de análise.
 
 ## Estrutura do repositório
 
