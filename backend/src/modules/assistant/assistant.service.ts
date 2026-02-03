@@ -32,6 +32,24 @@ export type AssistantMissionDTO = {
   completedAt: Date | null;
 };
 
+export type ComboLeader = {
+  id: string;
+  name: string;
+  archetype: string | null;
+  winRate: number;
+  battles: number;
+  lastBattleAt: Date | null;
+  bladeName?: string | null;
+};
+
+export type BladeLeader = {
+  id: string;
+  name: string;
+  archetype: string | null;
+  winRate: number;
+  battles: number;
+};
+
 export type WorkspaceStats = {
   battlesTotal: number;
   battlesLast7: number;
@@ -40,6 +58,8 @@ export type WorkspaceStats = {
   decksNeedingUpgrade: number;
   partsCatalog: number;
   lastBattleAt?: Date | null;
+  comboLeaders: ComboLeader[];
+  bladeLeaders: BladeLeader[];
 };
 
 type MissionTemplate = {
@@ -50,7 +70,189 @@ type MissionTemplate = {
   eligibility: (stats: WorkspaceStats, context?: AssistantContextPayload | null) => boolean;
 };
 
+type AssistantIntent =
+  | 'HELLO'
+  | 'BLOCKED'
+  | 'COMPLETE'
+  | 'REPORT'
+  | 'REGISTER'
+  | 'HELP'
+  | 'SMALLTALK'
+  | 'COMBO_ADVICE'
+  | 'BEST_PERFORMER';
+
 const DAYS = 24 * 60 * 60 * 1000;
+
+type ComboMeta = {
+  id: string;
+  name: string;
+  archetype: string | null;
+  blade?: { id: string; name: string; archetype: string | null } | null;
+};
+
+type BattleSnapshot = {
+  comboAId: string;
+  comboBId: string;
+  result: string;
+  occurredAt: Date | null;
+};
+
+type ComboAccumulator = {
+  id: string;
+  wins: number;
+  losses: number;
+  draws: number;
+  battles: number;
+  lastBattleAt: Date | null;
+};
+
+type BladeAccumulator = {
+  id: string;
+  name: string;
+  archetype: string | null;
+  wins: number;
+  losses: number;
+  draws: number;
+  battles: number;
+};
+
+function ensureComboAccumulator(map: Map<string, ComboAccumulator>, comboId: string): ComboAccumulator {
+  const existing = map.get(comboId);
+  if (existing) return existing;
+  const created: ComboAccumulator = {
+    id: comboId,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    battles: 0,
+    lastBattleAt: null,
+  };
+  map.set(comboId, created);
+  return created;
+}
+
+function ensureBladeAccumulator(
+  map: Map<string, BladeAccumulator>,
+  blade: NonNullable<ComboMeta['blade']>,
+): BladeAccumulator {
+  const existing = map.get(blade.id);
+  if (existing) return existing;
+  const created: BladeAccumulator = {
+    id: blade.id,
+    name: blade.name,
+    archetype: blade.archetype ?? null,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    battles: 0,
+  };
+  map.set(blade.id, created);
+  return created;
+}
+
+function mostRecentDate(a: Date | null, b?: Date | null): Date | null {
+  if (!b) return a;
+  if (!a) return b;
+  return a > b ? a : b;
+}
+
+function summarizeComboLeaders(comboStats: Map<string, ComboAccumulator>, comboMap: Map<string, ComboMeta>) {
+  const leaders: ComboLeader[] = [];
+  comboStats.forEach((entry) => {
+    const meta = comboMap.get(entry.id);
+    if (!meta) return;
+    if (entry.battles === 0) return;
+    const decisive = entry.wins + entry.losses;
+    const winRate = decisive ? entry.wins / decisive : 0;
+    leaders.push({
+      id: entry.id,
+      name: meta.name,
+      archetype: meta.archetype ?? null,
+      winRate,
+      battles: entry.battles,
+      lastBattleAt: entry.lastBattleAt,
+      bladeName: meta.blade?.name ?? null,
+    });
+  });
+
+  return leaders
+    .filter((leader) => leader.battles >= 2)
+    .sort((a, b) => {
+      if (b.winRate === a.winRate) return b.battles - a.battles;
+      return b.winRate - a.winRate;
+    })
+    .slice(0, 3);
+}
+
+function summarizeBladeLeaders(
+  comboStats: Map<string, ComboAccumulator>,
+  comboMap: Map<string, ComboMeta>,
+): BladeLeader[] {
+  const bladeStats = new Map<string, BladeAccumulator>();
+
+  comboStats.forEach((entry, comboId) => {
+    const meta = comboMap.get(comboId);
+    if (!meta?.blade) return;
+    const current = ensureBladeAccumulator(bladeStats, meta.blade);
+    current.wins += entry.wins;
+    current.losses += entry.losses;
+    current.draws += entry.draws;
+    current.battles += entry.battles;
+  });
+
+  return [...bladeStats.values()]
+    .filter((blade) => blade.battles >= 3)
+    .map((blade) => {
+      const decisive = blade.wins + blade.losses;
+      return {
+        id: blade.id,
+        name: blade.name,
+        archetype: blade.archetype ?? null,
+        winRate: decisive ? blade.wins / decisive : 0,
+        battles: blade.battles,
+      } satisfies BladeLeader;
+    })
+    .sort((a, b) => {
+      if (b.winRate === a.winRate) return b.battles - a.battles;
+      return b.winRate - a.winRate;
+    })
+    .slice(0, 3);
+}
+
+function derivePerformanceHighlights(comboMeta: ComboMeta[], battleHistory: BattleSnapshot[]) {
+  const comboMap = new Map(comboMeta.map((combo) => [combo.id, combo]));
+  const comboStats = new Map<string, ComboAccumulator>();
+
+  battleHistory.forEach((battle) => {
+    if (!battle.comboAId || !battle.comboBId) return;
+    const comboA = ensureComboAccumulator(comboStats, battle.comboAId);
+    const comboB = ensureComboAccumulator(comboStats, battle.comboBId);
+    comboA.battles += 1;
+    comboB.battles += 1;
+    comboA.lastBattleAt = mostRecentDate(comboA.lastBattleAt, battle.occurredAt ?? null);
+    comboB.lastBattleAt = mostRecentDate(comboB.lastBattleAt, battle.occurredAt ?? null);
+
+    switch (battle.result) {
+      case 'COMBO_A':
+        comboA.wins += 1;
+        comboB.losses += 1;
+        break;
+      case 'COMBO_B':
+        comboB.wins += 1;
+        comboA.losses += 1;
+        break;
+      default:
+        comboA.draws += 1;
+        comboB.draws += 1;
+        break;
+    }
+  });
+
+  return {
+    comboLeaders: summarizeComboLeaders(comboStats, comboMap),
+    bladeLeaders: summarizeBladeLeaders(comboStats, comboMap),
+  };
+}
 
 const missionTemplates: MissionTemplate[] = [
   {
@@ -110,6 +312,27 @@ async function fetchWorkspaceStats(): Promise<WorkspaceStats> {
       prisma.battle.findFirst({ orderBy: { occurredAt: 'desc' }, select: { occurredAt: true } }),
     ]);
 
+  const [comboMeta, battleHistory] = await Promise.all([
+    prisma.combo.findMany({
+      select: {
+        id: true,
+        name: true,
+        archetype: true,
+        blade: { select: { id: true, name: true, archetype: true } },
+      },
+    }),
+    prisma.battle.findMany({
+      select: {
+        comboAId: true,
+        comboBId: true,
+        result: true,
+        occurredAt: true,
+      },
+    }),
+  ]);
+
+  const highlights = derivePerformanceHighlights(comboMeta, battleHistory);
+
   return {
     battlesTotal,
     battlesLast7,
@@ -118,6 +341,8 @@ async function fetchWorkspaceStats(): Promise<WorkspaceStats> {
     decksNeedingUpgrade,
     partsCatalog,
     lastBattleAt: lastBattle?.occurredAt ?? null,
+    comboLeaders: highlights.comboLeaders,
+    bladeLeaders: highlights.bladeLeaders,
   };
 }
 
@@ -239,9 +464,31 @@ async function syncMissions(sessionId: string, stats: WorkspaceStats, context?: 
   return missions as AssistantMissionDTO[];
 }
 
-function detectIntent(message: string) {
-  const normalized = message.trim().toLowerCase();
+function normalizeMessage(message: string) {
+  return message
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0000-\u001f]/g, ' ')
+    .replace(/[\u007f-\u009f]/g, ' ')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function detectIntent(message: string): AssistantIntent {
+  const normalized = normalizeMessage(message);
   if (!normalized) return 'HELLO';
+
+  const mentionsCombo = /combo|deck|bey/.test(normalized);
+  const asksForRecommendation = /qual|testar|usar|montar|suger|recom/.test(normalized);
+
+  if (mentionsCombo && normalized.includes('melhor')) {
+    return 'BEST_PERFORMER';
+  }
+  if (mentionsCombo && asksForRecommendation) {
+    return 'COMBO_ADVICE';
+  }
+
   if (normalized.includes('nao tenho') || normalized.includes('não tenho') || normalized.includes('sem a peça')) {
     return 'BLOCKED';
   }
@@ -292,60 +539,126 @@ function formatDate(date?: Date | null) {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
+function formatWinPercent(value: number) {
+  const percent = Math.round(value * 100);
+  return `${percent}%`;
+}
+
+function buildComboAdvice(stats: WorkspaceStats) {
+  if (!stats.comboLeaders.length) {
+    return 'Ainda não consigo apontar favoritos: registre mais batalhas ou marque as séries recentes para eu saber quais combos estão performando melhor.';
+  }
+  const summary = stats.comboLeaders
+    .map((leader, index) => {
+      const archetypeTag = leader.archetype ? ` · ${leader.archetype}` : '';
+      const bladeLabel = leader.bladeName ? ` com ${leader.bladeName}` : '';
+      return `${index + 1}. ${leader.name}${archetypeTag}${bladeLabel} — ${formatWinPercent(leader.winRate)} em ${leader.battles} batalhas`;
+    })
+    .join('\n');
+  return `Top combos agora:\n${summary}\nAbra Combos → Detalhes para revisar turnos, arenas e montar uma variação.`;
+}
+
+function describeBestBeys(stats: WorkspaceStats) {
+  if (!stats.bladeLeaders.length) {
+    return 'Ainda preciso de pelo menos três batalhas por blade para apontar quem domina o laboratório.';
+  }
+  const summary = stats.bladeLeaders
+    .map((blade, index) => {
+      const archetypeTag = blade.archetype ? ` · ${blade.archetype}` : '';
+      return `${index + 1}. ${blade.name}${archetypeTag} — ${formatWinPercent(blade.winRate)} em ${blade.battles} batalhas`;
+    })
+    .join('\n');
+  return `Os blades que mais venceram até agora:\n${summary}`;
+}
+
+function collectRouteHints(context?: AssistantContextPayload | null) {
+  const hints: string[] = [];
+  if (!context?.route) return hints;
+  if (context.route.includes('battle')) {
+    hints.push(
+      'No Composer use o seletor “Série” acima do console para alternar entre 3 e 7 turnos e deixar o placar automático cuidar dos 4 pontos.',
+    );
+  }
+  if (context.route.includes('deck')) {
+    hints.push('Em Decks, mova o controle “Turnos na série” para desbloquear até 7 slots e armazenar novas sequências.');
+  }
+  if (context.route === '/' || context.route.includes('dashboard')) {
+    hints.push(
+      'No dashboard, abra o bloco “Mode Dashboard” para comparar Oficial 3on3, Torneio Regional e Treino Longo e salvar um preset próprio.',
+    );
+  }
+  return hints;
+}
+
 function buildAssistantReply(
   message: string,
+  intent: AssistantIntent,
   stats: WorkspaceStats,
   missions: AssistantMissionDTO[],
   context?: AssistantContextPayload | null,
 ) {
-  const normalized = message.trim().toLowerCase();
+  const normalized = normalizeMessage(message);
+  const gratitude = normalized.includes('obrigado') || normalized.includes('valeu');
   const lines: string[] = [];
   const activeMission = missions.find((mission) => mission.status === 'ACTIVE');
-  const recentStats = `Você está com ${stats.battlesTotal} batalhas registradas (${stats.battlesLast7} na última semana) e ${stats.decksTotal} decks ativos.`;
+  const usageSummary = `Você está com ${stats.battlesTotal} batalhas registradas (${stats.battlesLast7} na última semana) e ${stats.decksTotal} decks ativos.`;
+  const lastBattleLine = stats.lastBattleAt
+    ? `${usageSummary} Último registro: ${formatDate(stats.lastBattleAt)}.`
+    : `${usageSummary} Ainda falta registrar a próxima batalha para eu ter base fresca.`;
 
-  if (!normalized) {
-    lines.push(
-      'Oi! Eu assumo a central de bordo: ajudo com cadastros, missões, presets e até com o novo console de série 7 turnos. É só me dizer o que está fazendo agora.',
-    );
-  } else if (normalized.includes('relatorio') || normalized.includes('relatório')) {
-    lines.push(
-      'Lembra que o dashboard agora tem dois blocos extras: o painel de presets (Mode Dashboard) e a Inteligência de desempenho das peças. Dá para alternar modos oficiais, salvar seu preset e exportar um snapshot.',
-    );
-  } else if (normalized.includes('cadastro') || normalized.includes('registrar')) {
-    lines.push(
-      'Pra registrar batalhas com série longa, use o seletor de turnos até 7 e acompanha quem chega a 4 pontos. O deck novo também aceita esses slots extras — se faltar peça eu marco a missão como pendente.',
-    );
-  } else if (normalized.includes('obrigado') || normalized.includes('valeu')) {
-    lines.push('Tamo junto! Se quiser eu já te passo a próxima missão ou resumo algum relatório.');
-  } else {
-    lines.push('Anotei! Já considero isso nos próximos alertas e missões.');
+  switch (intent) {
+    case 'HELLO':
+      lines.push(
+        'Oi! Eu assumo a central de bordo do laboratório: acompanho missões, decks 7 turnos e relatórios. Me conta o que está montando que eu já preparo a próxima ação.',
+      );
+      lines.push(buildComboAdvice(stats));
+      break;
+    case 'COMBO_ADVICE':
+      lines.push(buildComboAdvice(stats));
+      break;
+    case 'BEST_PERFORMER':
+      lines.push(describeBestBeys(stats));
+      if (stats.comboLeaders.length) {
+        lines.push(
+          `No painel de Combos, abra o líder ${stats.comboLeaders[0].name} para ver turnos e vitórias por arena antes de testar uma variação.`,
+        );
+      }
+      break;
+    case 'REPORT':
+      lines.push(
+        'Abra o dashboard → Inteligência de desempenho para comparar winrate, arenas e parceiros de cada peça. O bloco Mode Dashboard continua guardando presets lado a lado.',
+      );
+      break;
+    case 'REGISTER':
+      lines.push(
+        'Para cadastros longos: escolha o deck, ajuste “Turnos na série” até 7 e use o placar automático. Eu marco missão como concluída quando a série de 4 pontos estiver rodando.',
+      );
+      break;
+    case 'HELP':
+      lines.push('Posso sugerir combos, revisar missões ou apontar onde encontrar relatórios. É só dizer o foco.');
+      break;
+    default:
+      if (gratitude) {
+        lines.push('Tamo junto! Posso mostrar outra missão, sugerir combos ou abrir um relatório, é só pedir.');
+      } else {
+        lines.push('Anotei! Já registrei o pedido e ajusto os próximos alertas com isso.');
+        if (stats.comboLeaders.length) {
+          const leader = stats.comboLeaders[0];
+          lines.push(
+            `Enquanto isso ${leader.name} segura ${formatWinPercent(leader.winRate)} em ${leader.battles} batalhas — vale conferir na aba Combos.`,
+          );
+        }
+      }
+      break;
   }
 
-  if (context?.route?.includes('battle')) {
-    lines.push(
-      'No Composer você encontra o seletor "Série" logo acima do console 3on3. Ajuste para 7 para desbloquear o placar automático de 4 pontos e gerar decks completos.',
-    );
-  }
-  if (context?.route?.includes('deck')) {
-    lines.push(
-      'Na aba de Decks agora dá pra definir até 7 slots: basta mover o controle de turnos e preencher os combos extras para cada posição.',
-    );
-  }
-  if (context?.route === '/' || context?.route?.includes('dashboard')) {
-    lines.push(
-      'Visite o bloco "Mode Dashboard" para alternar entre Oficial 3on3, Torneio regional e Treino longo, comparar dois modos lado a lado e baixar um resumo em PDF/print.',
-    );
-  }
+  collectRouteHints(context).forEach((hint) => lines.push(hint));
 
   if (activeMission) {
     lines.push(`Missão em foco: ${activeMission.title} — ${activeMission.description}`);
   }
 
-  if (stats.lastBattleAt) {
-    lines.push(`${recentStats} Último registro aconteceu em ${formatDate(stats.lastBattleAt)}.`);
-  } else {
-    lines.push(`${recentStats} Ainda não encontrei batalhas recentes, bora registrar as primeiras.`);
-  }
+  lines.push(lastBattleLine);
 
   return lines.join('\n\n');
 }
@@ -357,7 +670,7 @@ export async function bootstrapAssistant(payload: AssistantSessionPayload) {
   const history = await listMessages(session.id);
 
   if (history.length === 0) {
-    const intro = buildAssistantReply('', stats, missions, payload.context);
+    const intro = buildAssistantReply('', 'HELLO', stats, missions, payload.context);
     await recordMessage(session.id, 'ASSISTANT', intro, payload.context);
     const freshHistory = await listMessages(session.id);
     return { sessionId: session.id, message: intro, missions, history: freshHistory };
@@ -378,7 +691,7 @@ export async function processAssistantMessage(payload: AssistantMessagePayload) 
   await recordMessage(session.id, 'USER', payload.message, payload.context);
   const stats = await fetchWorkspaceStats();
   const missions = await syncMissions(session.id, stats, payload.context);
-  const reply = buildAssistantReply(payload.message, stats, missions, payload.context);
+  const reply = buildAssistantReply(payload.message, intent, stats, missions, payload.context);
   const assistantEntry = await recordMessage(session.id, 'ASSISTANT', reply, payload.context);
   const history = await listMessages(session.id);
   return { sessionId: session.id, reply: assistantEntry.content, missions, history };
