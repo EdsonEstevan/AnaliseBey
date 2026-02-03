@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { AssistantMission, Prisma } from '@prisma/client';
 
 import { prisma } from '../../db/prisma';
 import {
@@ -523,12 +523,12 @@ function buildMissionDetails(
   return resolved;
 }
 
-function parseMissionContext(mission: Prisma.AssistantMission): MissionContextPayload | null {
+function parseMissionContext(mission: AssistantMission): MissionContextPayload | null {
   if (!mission.context) return null;
   return mission.context as MissionContextPayload;
 }
 
-function resolveMissionGuide(mission: Prisma.AssistantMission) {
+function resolveMissionGuide(mission: AssistantMission) {
   const contextPayload = parseMissionContext(mission);
   if (contextPayload?.guide) {
     return contextPayload.guide;
@@ -537,7 +537,7 @@ function resolveMissionGuide(mission: Prisma.AssistantMission) {
   return template?.guide ?? null;
 }
 
-function decorateMission(mission: Prisma.AssistantMission): AssistantMissionDTO {
+function decorateMission(mission: AssistantMission): AssistantMissionDTO {
   return {
     id: mission.id,
     title: mission.title,
