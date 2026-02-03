@@ -89,6 +89,92 @@
     <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
       <header class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
+          <p class="text-xs uppercase tracking-wide text-slate-400">Mode Dashboard</p>
+          <h2 class="text-2xl font-semibold">Presets de formato</h2>
+          <p class="text-sm text-slate-500">Compare Oficial 3on3, circuitos regionais e treinos longos e salve os recortes que preferir.</p>
+        </div>
+        <span class="text-xs text-slate-500">{{ defaultModePresets.length + customModePresets.length }} presets</span>
+      </header>
+      <div class="grid gap-4 xl:grid-cols-3">
+        <article
+          v-for="preset in modePresetCards"
+          :key="preset.id"
+          class="rounded-2xl border bg-slate-950/40 p-5 transition focus-within:ring-2 focus-within:ring-primary/20"
+          :class="[preset.isActive ? 'border-primary/60 shadow-lg shadow-primary/20' : 'border-slate-800', preset.accentClass]"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase tracking-wide text-slate-500">
+                {{ preset.isCustom ? 'Preset salvo' : 'Formato base' }}
+              </p>
+              <h3 class="text-xl font-semibold">{{ preset.label }}</h3>
+              <p class="text-sm text-slate-400">{{ preset.description }}</p>
+            </div>
+            <span class="text-xs text-slate-500">{{ preset.summary.rangeLabel }}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-4 my-4">
+            <div>
+              <p class="text-[11px] uppercase text-slate-500">Rodadas</p>
+              <p class="text-2xl font-semibold">{{ preset.summary.rounds }}</p>
+            </div>
+            <div>
+              <p class="text-[11px] uppercase text-slate-500">Decisões</p>
+              <p class="text-2xl font-semibold">{{ preset.summary.decisiveRate }}%</p>
+            </div>
+            <div>
+              <p class="text-[11px] uppercase text-slate-500">Empates</p>
+              <p class="text-xl font-semibold">{{ preset.summary.drawRate }}%</p>
+            </div>
+            <div>
+              <p class="text-[11px] uppercase text-slate-500">Ritmo semanal</p>
+              <p class="text-xl font-semibold">{{ preset.summary.pace }} /sem</p>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500">{{ preset.summary.caption }}</p>
+          <div class="flex flex-wrap gap-3 mt-4 text-sm">
+            <button
+              type="button"
+              class="px-4 py-2 rounded-xl bg-primary/80 text-white font-semibold"
+              :class="preset.isActive ? 'opacity-70 cursor-default' : ''"
+              :disabled="preset.isActive"
+              @click="applyPresetFilters(preset.filters)"
+            >
+              {{ preset.isActive ? 'Preset ativo' : 'Aplicar preset' }}
+            </button>
+            <button
+              v-if="preset.isCustom"
+              type="button"
+              class="px-3 py-2 rounded-xl border border-slate-700 text-slate-400"
+              @click="removeCustomPreset(preset.id)"
+            >
+              Remover
+            </button>
+          </div>
+        </article>
+      </div>
+      <div class="flex flex-wrap items-center gap-3 pt-5 border-t border-slate-800 mt-6">
+        <input
+          v-model="presetForm.name"
+          class="bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2 text-sm flex-1 min-w-[220px]"
+          type="text"
+          maxlength="40"
+          placeholder="Nome para salvar o filtro atual"
+        />
+        <button
+          type="button"
+          class="px-4 py-2 rounded-xl bg-emerald-500/80 text-white font-semibold"
+          :disabled="!presetForm.name.trim()"
+          @click="saveCurrentPreset"
+        >
+          Salvar preset atual
+        </button>
+        <p class="text-xs text-slate-500">Armazena formato, intervalo, arquétipo, arena e piloto.</p>
+      </div>
+    </section>
+
+    <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+      <header class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
           <p class="text-xs uppercase tracking-wide text-slate-400">Painel estratégico</p>
           <h2 class="text-2xl font-semibold">Filtros dinâmicos</h2>
           <p class="text-sm text-slate-500">Aplique filtros para focar em períodos, arquétipos ou resultados específicos.</p>
@@ -115,6 +201,25 @@
           </div>
         </div>
         <div>
+          <p class="text-xs uppercase tracking-wide text-slate-400">Formato</p>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button
+              v-for="option in battleModeFilterOptions"
+              :key="option.value"
+              type="button"
+              class="px-3 py-2 rounded-xl border text-left transition min-w-[180px]"
+              :class="filterState.mode === option.value
+                ? 'border-primary/70 bg-primary/15 text-white'
+                : 'border-slate-800 text-slate-400 hover:border-primary/40'
+              "
+              @click="filterState.mode = option.value"
+            >
+              <p class="text-sm font-semibold">{{ option.label }}</p>
+              <p v-if="option.helper" class="text-[11px] text-slate-500">{{ option.helper }}</p>
+            </button>
+          </div>
+        </div>
+        <div>
           <p class="text-xs uppercase tracking-wide text-slate-400">Arquétipo</p>
           <select
             v-model="filterState.archetype"
@@ -135,6 +240,30 @@
             <option value="COMBO_A">Vitória do Combo A</option>
             <option value="COMBO_B">Vitória do Combo B</option>
             <option value="DRAW">Empates</option>
+          </select>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-400">Arena</p>
+          <select
+            v-model="filterState.arenaId"
+            class="w-full mt-2 bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2 text-sm"
+          >
+            <option value="ALL">Todas</option>
+            <option v-for="arena in arenasStore.items" :key="arena.id" :value="arena.id">
+              {{ arena.name }}
+            </option>
+          </select>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-400">Piloto</p>
+          <select
+            v-model="filterState.bladerId"
+            class="w-full mt-2 bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2 text-sm"
+          >
+            <option value="ALL">Todos</option>
+            <option v-for="blader in bladersStore.items" :key="blader.id" :value="blader.id">
+              {{ blader.name }}
+            </option>
           </select>
         </div>
       </div>
@@ -799,6 +928,7 @@ import { usePartsStore } from '../stores/parts';
 import { useCombosStore } from '../stores/combos';
 import { useBattlesStore } from '../stores/battles';
 import { useBladersStore } from '../stores/bladers';
+import { useArenasStore } from '../stores/arenas';
 import { formatDate } from '../utils/format';
 
 Chart.register(ArcElement, BarElement, CategoryScale, Legend, LinearScale, LineElement, PointElement, Tooltip);
@@ -807,6 +937,7 @@ const partsStore = usePartsStore();
 const combosStore = useCombosStore();
 const battlesStore = useBattlesStore();
 const bladersStore = useBladersStore();
+const arenasStore = useArenasStore();
 
 const TAB_STORAGE_KEY = 'dashboard:comboTabs';
 
@@ -823,11 +954,18 @@ const labels = {
   DRAW: 'Empate',
 };
 
-const filterState = reactive({
+const FILTER_DEFAULTS = {
   range: '30',
   archetype: 'ALL',
   result: 'ALL',
-});
+  mode: 'ALL',
+  arenaId: 'ALL',
+  bladerId: 'ALL',
+};
+
+const MODE_PRESET_STORAGE_KEY = 'dashboard:modePresets';
+
+const filterState = reactive({ ...FILTER_DEFAULTS });
 
 const rangePresets = [
   { label: '7 dias', value: '7' },
@@ -835,6 +973,58 @@ const rangePresets = [
   { label: '90 dias', value: '90' },
   { label: 'Tudo', value: 'all' },
 ];
+
+const battleModeFilterOptions = [
+  { value: 'ALL', label: 'Todos os formatos', helper: 'Misture todos os registros' },
+  { value: 'OFFICIAL_3ON3', label: 'Oficial 3on3', helper: 'Deck fechado • 4 pontos' },
+  { value: 'REGIONAL_CIRCUIT', label: 'Torneio regional', helper: 'Decks flex e adaptados' },
+  { value: 'LONG_TRAINING', label: 'Treino longo', helper: 'Séries de laboratório' },
+  { value: 'CUSTOM', label: 'Custom', helper: 'Testes livres ou convidados' },
+];
+
+const battleModeLabelMap = battleModeFilterOptions.reduce((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {});
+
+const defaultModePresets = [
+  {
+    id: 'preset-official',
+    label: 'Oficial 3on3',
+    description: 'Deck fechado focado em séries rápidas com 4 pontos.',
+    accent: 'emerald',
+    filters: { mode: 'OFFICIAL_3ON3', range: '30' },
+  },
+  {
+    id: 'preset-regional',
+    label: 'Torneio regional',
+    description: 'Circuito com decks flex e janelas de 60 dias.',
+    accent: 'sky',
+    filters: { mode: 'REGIONAL_CIRCUIT', range: '60' },
+  },
+  {
+    id: 'preset-training',
+    label: 'Treino longo',
+    description: 'Séries abertas e laboratório ilimitado.',
+    accent: 'amber',
+    filters: { mode: 'LONG_TRAINING', range: 'all' },
+  },
+];
+
+const customModePresets = ref([]);
+const presetForm = reactive({ name: '' });
+
+const arenaIndex = computed(() => {
+  const map = new Map();
+  arenasStore.items.forEach((arena) => map.set(arena.id, arena));
+  return map;
+});
+
+const bladerIndex = computed(() => {
+  const map = new Map();
+  bladersStore.items.forEach((blader) => map.set(blader.id, blader));
+  return map;
+});
 
 const chartPalette = ['#22c55e', '#a855f7', '#f97316', '#38bdf8', '#f43f5e', '#fde047', '#c084fc'];
 const accentPalette = ['#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#2dd4bf', '#c4b5fd'];
@@ -914,12 +1104,24 @@ onMounted(async () => {
         console.warn('Falha ao carregar abas salvas', err);
       }
     }
+    const presetPayload = window.localStorage.getItem(MODE_PRESET_STORAGE_KEY);
+    if (presetPayload) {
+      try {
+        const parsedPresets = JSON.parse(presetPayload);
+        if (Array.isArray(parsedPresets)) {
+          customModePresets.value = parsedPresets.filter((entry) => entry?.id && entry?.filters);
+        }
+      } catch (err) {
+        console.warn('Falha ao carregar presets salvos', err);
+      }
+    }
   }
   await Promise.all([
     partsStore.fetchParts(),
     combosStore.fetchCombos(),
     battlesStore.fetchBattles({ limit: 250 }),
     bladersStore.fetchBladers(),
+    arenasStore.fetchArenas(),
   ]);
 });
 
@@ -933,47 +1135,190 @@ watch(
   { deep: true },
 );
 
-const archetypeOptions = computed(() => {
-  const unique = Array.from(new Set(combosStore.items.map((combo) => combo.archetype)));
-  return ['ALL', ...unique];
-});
-
-const filteredBattles = computed(() => {
-  const now = Date.now();
-  const daysLimit = filterState.range === 'all' ? null : Number(filterState.range);
-  const minTimestamp = daysLimit ? now - daysLimit * 24 * 60 * 60 * 1000 : null;
-
-  return battlesStore.items.filter((battle) => {
-    const occurredAt = battle.occurredAt ? new Date(battle.occurredAt).getTime() : null;
-    if (minTimestamp && occurredAt && occurredAt < minTimestamp) {
-      return false;
+watch(
+  customModePresets,
+  (value) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(MODE_PRESET_STORAGE_KEY, JSON.stringify(value));
     }
-    if (filterState.archetype !== 'ALL') {
-      const matchesArchetype =
-        battle.comboA?.archetype === filterState.archetype ||
-        battle.comboB?.archetype === filterState.archetype;
-      if (!matchesArchetype) return false;
-    }
-    if (filterState.result !== 'ALL' && battle.result !== filterState.result) {
-      return false;
-    }
-    return true;
-  });
-});
+  },
+  { deep: true },
+);
 
-const filteredRangeDays = computed(() => {
-  if (filterState.range !== 'all') {
-    return Number(filterState.range);
+function normalizeFilters(rawFilters = {}) {
+  return {
+    range: rawFilters.range ?? FILTER_DEFAULTS.range,
+    archetype: rawFilters.archetype ?? FILTER_DEFAULTS.archetype,
+    result: rawFilters.result ?? FILTER_DEFAULTS.result,
+    mode: rawFilters.mode ?? FILTER_DEFAULTS.mode,
+    arenaId: rawFilters.arenaId ?? FILTER_DEFAULTS.arenaId,
+    bladerId: rawFilters.bladerId ?? FILTER_DEFAULTS.bladerId,
+  };
+}
+
+function evaluateFilterWindow(rawFilters = {}) {
+  const normalized = normalizeFilters(rawFilters);
+  const rangeValue = normalized.range;
+  const daysLimit = rangeValue === 'all' ? null : Number(rangeValue);
+  const minTimestamp =
+    daysLimit && Number.isFinite(daysLimit) ? Date.now() - daysLimit * 24 * 60 * 60 * 1000 : null;
+  return { normalized, minTimestamp };
+}
+
+function battleMatchesFilters(battle, normalizedFilters, minTimestamp) {
+  const occurredAt = battle.occurredAt ? new Date(battle.occurredAt).getTime() : null;
+  if (minTimestamp && occurredAt && occurredAt < minTimestamp) {
+    return false;
   }
-  const timestamps = filteredBattles.value
+  if (normalizedFilters.mode !== 'ALL') {
+    const battleMode = battle.mode ?? 'OFFICIAL_3ON3';
+    if (battleMode !== normalizedFilters.mode) return false;
+  }
+  if (normalizedFilters.archetype !== 'ALL') {
+    const matchesArchetype =
+      battle.comboA?.archetype === normalizedFilters.archetype ||
+      battle.comboB?.archetype === normalizedFilters.archetype;
+    if (!matchesArchetype) return false;
+  }
+  if (normalizedFilters.result !== 'ALL' && battle.result !== normalizedFilters.result) {
+    return false;
+  }
+  if (normalizedFilters.arenaId !== 'ALL') {
+    const arenaId = battle.arena?.id ?? battle.arenaId ?? null;
+    if (arenaId !== normalizedFilters.arenaId) return false;
+  }
+  if (normalizedFilters.bladerId !== 'ALL') {
+    const bladerAId = battle.bladerA?.id ?? battle.bladerAId ?? null;
+    const bladerBId = battle.bladerB?.id ?? battle.bladerBId ?? null;
+    if (bladerAId !== normalizedFilters.bladerId && bladerBId !== normalizedFilters.bladerId) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function collectBattles(rawFilters = {}) {
+  const { normalized, minTimestamp } = evaluateFilterWindow(rawFilters);
+  return battlesStore.items.filter((battle) => battleMatchesFilters(battle, normalized, minTimestamp));
+}
+
+function collectRounds(rawFilters = {}) {
+  return collectBattles(rawFilters).flatMap((battle) => roundsFromBattle(battle));
+}
+
+function computeRangeDays(battles, rangeValue) {
+  if (rangeValue && rangeValue !== 'all') {
+    const parsed = Number(rangeValue);
+    return Number.isFinite(parsed) ? parsed : Number(FILTER_DEFAULTS.range);
+  }
+  const timestamps = battles
     .map((battle) => (battle.occurredAt ? new Date(battle.occurredAt).getTime() : null))
     .filter((value) => typeof value === 'number' && !Number.isNaN(value));
   if (!timestamps.length) return 30;
   const span = (Math.max(...timestamps) - Math.min(...timestamps)) / (1000 * 60 * 60 * 24);
   return Math.max(1, Math.ceil(span));
+}
+
+function describePresetFilters(filters) {
+  const normalized = normalizeFilters(filters);
+  const parts = [];
+  parts.push(normalized.mode === 'ALL' ? 'Todos os formatos' : battleModeLabelMap[normalized.mode] ?? normalized.mode);
+  parts.push(normalized.range === 'all' ? 'Intervalo completo' : `${normalized.range} dias`);
+  if (normalized.archetype !== 'ALL') {
+    parts.push(`Arquétipo ${normalized.archetype}`);
+  }
+  if (normalized.arenaId !== 'ALL') {
+    const arenaName = arenaIndex.value.get(normalized.arenaId)?.name ?? 'Arena filtrada';
+    parts.push(arenaName);
+  }
+  if (normalized.bladerId !== 'ALL') {
+    const bladerName = bladerIndex.value.get(normalized.bladerId)?.name ?? 'Piloto filtrado';
+    parts.push(bladerName);
+  }
+  return parts.join(' · ');
+}
+
+function summarizePreset(filters) {
+  const normalized = normalizeFilters(filters);
+  const battles = collectBattles(normalized);
+  const rounds = battles.flatMap((battle) => roundsFromBattle(battle));
+  const draws = battles.filter((battle) => battle.result === 'DRAW').length;
+  const decisiveRate = battles.length ? Math.round(((battles.length - draws) / battles.length) * 100) : 0;
+  const drawRate = battles.length ? Math.round((draws / battles.length) * 100) : 0;
+  const rangeLabel = normalized.range === 'all' ? 'Intervalo completo' : `${normalized.range} dias`;
+  const paceBase = computeRangeDays(battles, normalized.range);
+  const pace = paceBase ? ((rounds.length / paceBase) * 7).toFixed(1) : '0.0';
+  return {
+    rounds: rounds.length,
+    battles: battles.length,
+    decisiveRate,
+    drawRate,
+    pace,
+    rangeLabel,
+    caption: describePresetFilters(normalized),
+  };
+}
+
+function filtersMatchCurrent(filters) {
+  const normalizedTarget = normalizeFilters(filters);
+  const normalizedCurrent = normalizeFilters(filterState);
+  return Object.keys(normalizedTarget).every((key) => normalizedTarget[key] === normalizedCurrent[key]);
+}
+
+function applyPresetFilters(filters) {
+  const normalized = normalizeFilters(filters);
+  Object.assign(filterState, normalized);
+}
+
+function saveCurrentPreset() {
+  const label = presetForm.name.trim();
+  if (!label) return;
+  const snapshot = normalizeFilters(filterState);
+  const existing = customModePresets.value.filter((preset) => preset.label !== label);
+  const entry = { id: `custom-${Date.now()}`, label, filters: snapshot };
+  customModePresets.value = [entry, ...existing].slice(0, 6);
+  presetForm.name = '';
+}
+
+function removeCustomPreset(id) {
+  customModePresets.value = customModePresets.value.filter((preset) => preset.id !== id);
+}
+
+const presetAccentClasses = {
+  emerald: 'hover:border-emerald-400/60 focus-visible:ring-emerald-400/30',
+  sky: 'hover:border-sky-400/60 focus-visible:ring-sky-400/30',
+  amber: 'hover:border-amber-400/60 focus-visible:ring-amber-400/30',
+  rose: 'hover:border-rose-400/60 focus-visible:ring-rose-400/30',
+};
+
+const allModePresets = computed(() => [
+  ...defaultModePresets,
+  ...customModePresets.value.map((preset) => ({ ...preset, accent: 'rose', isCustom: true })),
+]);
+
+const modePresetCards = computed(() =>
+  allModePresets.value.map((preset) => {
+    const summary = summarizePreset(preset.filters);
+    return {
+      ...preset,
+      summary,
+      isCustom: Boolean(preset.isCustom),
+      isActive: filtersMatchCurrent(preset.filters),
+      accentClass: presetAccentClasses[preset.accent] ?? 'hover:border-primary/40 focus-visible:ring-primary/30',
+    };
+  }),
+);
+
+const archetypeOptions = computed(() => {
+  const unique = Array.from(new Set(combosStore.items.map((combo) => combo.archetype)));
+  return ['ALL', ...unique];
 });
 
-const roundsDataset = computed(() => filteredBattles.value.flatMap((battle) => roundsFromBattle(battle)));
+const filteredBattles = computed(() => collectBattles(filterState));
+
+const filteredRangeDays = computed(() => computeRangeDays(filteredBattles.value, filterState.range));
+
+const roundsDataset = computed(() => collectRounds(filterState));
 
 const combosActive = computed(() => combosStore.items.filter((c) => c.status === 'ACTIVE').length);
 const partsTotal = computed(() => partsStore.items.length);

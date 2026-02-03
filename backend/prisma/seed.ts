@@ -525,6 +525,7 @@ async function main() {
         result: 'COMBO_A',
         victoryType: 'knockout',
         arenaId: arena.id,
+        mode: 'OFFICIAL_3ON3',
       },
       {
         comboAId: comboA.id,
@@ -534,6 +535,7 @@ async function main() {
         result: 'COMBO_B',
         victoryType: 'spin',
         arenaId: arena2.id,
+        mode: 'REGIONAL_CIRCUIT',
       },
       {
         comboAId: comboB.id,
@@ -543,6 +545,7 @@ async function main() {
         result: 'DRAW',
         victoryType: 'over',
         arenaId: arena.id,
+        mode: 'LONG_TRAINING',
       },
     ],
   });

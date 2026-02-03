@@ -4,7 +4,7 @@ import { prisma } from '../../db/prisma';
 import { badRequest, notFound } from '../../utils/apiError';
 import { BattlePayload, BattleTurnPayload } from '../../types/dto';
 import { ensureStringArray } from '../../utils/json';
-import { BattleOutcome } from '../../types/enums';
+import { BattleMode, BattleOutcome } from '../../types/enums';
 
 const battleInclude = {
   comboA: {
@@ -37,6 +37,8 @@ type BattleTurn = {
   victoryType?: string | null;
   notes?: string | null;
 };
+
+const DEFAULT_BATTLE_MODE: BattleMode = 'OFFICIAL_3ON3';
 
 const victoryPoints = new Map<string, number>([
   ['burstfinish', 2],
@@ -197,6 +199,7 @@ export type BattleFilters = {
   arenaId?: string;
   bladerId?: string;
   result?: BattleOutcome;
+  mode?: BattleMode;
   limit?: number;
 };
 
@@ -204,6 +207,7 @@ export async function listBattles(filters: BattleFilters = {}) {
   const where: Prisma.BattleWhereInput = {
     arenaId: filters.arenaId,
     result: filters.result,
+    mode: filters.mode,
   };
   const appendCondition = (condition: Prisma.BattleWhereInput) => {
     const current = where.AND;
@@ -268,6 +272,7 @@ export async function createBattle(payload: BattlePayload) {
       bladerAId,
       bladerBId,
       result: summary?.result ?? payload.result,
+      mode: payload.mode ?? DEFAULT_BATTLE_MODE,
       score: summary?.score ?? payload.score,
       victoryType: payload.victoryType ?? summary?.victoryType ?? null,
       turns: turns.length ? (turns as unknown as Prisma.InputJsonValue) : undefined,
@@ -314,6 +319,7 @@ export async function updateBattle(id: string, payload: Partial<BattlePayload>) 
       bladerAId: normalizedBladerAId !== undefined ? normalizedBladerAId : existing.bladerAId,
       bladerBId: normalizedBladerBId !== undefined ? normalizedBladerBId : existing.bladerBId,
       result: summary?.result ?? payload.result ?? existing.result,
+      mode: payload.mode ?? existing.mode,
       score: summary?.score ?? payload.score ?? existing.score,
       victoryType: payload.victoryType ?? summary?.victoryType ?? existing.victoryType,
       turns: turnsProvided

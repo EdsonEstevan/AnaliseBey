@@ -7,6 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum BattleMode {
+  OFFICIAL_3ON3
+  REGIONAL_CIRCUIT
+  LONG_TRAINING
+  CUSTOM
+}
+
 model Part {
   id        String   @id @default(cuid())
   name      String
@@ -76,6 +83,7 @@ model Battle {
   bladerAId   String?
   bladerBId   String?
   result      String
+  mode        BattleMode @default(OFFICIAL_3ON3)
   score       String?
   victoryType String?
   turns       Json?

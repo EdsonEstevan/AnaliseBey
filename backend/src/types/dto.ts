@@ -1,4 +1,4 @@
-import { Archetype, BattleOutcome, ComboStatus, PartType } from './enums';
+import { Archetype, BattleMode, BattleOutcome, ComboStatus, PartType } from './enums';
 
 export type PartPayload = {
   name: string;
@@ -37,6 +37,7 @@ export type BattlePayload = {
   bladerAId?: string | null;
   bladerBId?: string | null;
   result: BattleOutcome;
+  mode?: BattleMode;
   score?: string;
   victoryType?: string;
   arenaId?: string;

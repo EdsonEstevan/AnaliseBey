@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { BattleOutcomes } from '../../types/enums';
+import { BattleModes, BattleOutcomes } from '../../types/enums';
 
 const battleOutcomeValues = BattleOutcomes;
+const battleModeValues = BattleModes;
 
 const battleTurnSchema = z.object({
   winner: z.enum(battleOutcomeValues),
@@ -15,6 +16,7 @@ export const battleBodySchema = z.object({
   bladerAId: z.string().min(1).optional(),
   bladerBId: z.string().min(1).optional(),
   result: z.enum(battleOutcomeValues),
+  mode: z.enum(battleModeValues).optional(),
   score: z.string().optional(),
   victoryType: z.string().optional(),
   arenaId: z.string().optional(),
@@ -28,6 +30,7 @@ export const battleFiltersSchema = z.object({
   arenaId: z.string().optional(),
   bladerId: z.string().optional(),
   result: z.enum(battleOutcomeValues).optional(),
+  mode: z.enum(battleModeValues).optional(),
   limit: z.coerce.number().min(1).max(500).optional(),
 });
 
