@@ -71,6 +71,32 @@ npm run build
 npm start
 ```
 
+### Deploy no Vercel
+
+> Use dois projetos separados (um para a API, outro para o SPA) a partir do mesmo repositório. Assim cada diretório (`backend/` e `frontend/`) permanece com seu próprio pipeline.
+
+1. **Backend (API Express + Prisma)**
+   - No painel do Vercel clique em *Add Project → Import Git Repository* e selecione este repo.
+   - Em *Root Directory* informe `backend`.
+   - *Framework Preset*: `Other`.
+   - *Build Command*: `npm run build` (não será usado, mas mantém o pipeline consistente).
+   - *Install Command*: `npm install` (o `postinstall` já roda `prisma generate`).
+   - *Output Directory*: deixe em branco.
+   - Adicione as variáveis de ambiente usadas em `backend/src/config/env.ts`: `DATABASE_URL`, `EXTERNAL_PARTS_PROVIDER` (opcional) e ajuste `PORT` para `3000` (o valor é ignorado em serverless, mas ajuda em previews).
+   - Após o primeiro deploy copie a URL (ex.: `https://api-analise-bey.vercel.app`). A função serverless responde em `/api/...` porque o arquivo `backend/api/index.ts` exporta o `app` do Express.
+
+2. **Frontend (Vite SPA)**
+   - Crie outro projeto apontando para o mesmo repo e defina `frontend` como *Root Directory*.
+   - *Framework Preset*: `Vite`.
+   - *Build Command*: `npm run build`.
+   - *Output Directory*: `dist`.
+   - Configure a env `VITE_API_URL` com a URL da API criada no passo anterior (`https://api-analise-bey.vercel.app/api`).
+   - Cada push na branch principal dispara build separado para o SPA.
+
+3. **Preview branches & dev**
+   - O Vercel cria prévias tanto para backend quanto para frontend. Como as URLs mudam, use os comentários automáticos do Vercel no PR para copiar o endpoint e setar `VITE_API_URL` nos *Preview Environment Variables*.
+   - Lembre que Prisma precisa de um Postgres acessível ao Vercel (ex.: Supabase, Neon). Ajuste `DATABASE_URL` apontando para um host público; SQLite não funciona em serverless.
+
 ## Import/Export e dados seed
 
 - **Backup completo JSON:** `GET /api/backup/json` (inclui parts, combos, arenas e battles).
