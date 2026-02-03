@@ -19,6 +19,8 @@ function persistSessionId(sessionId) {
   if (typeof window === 'undefined') return;
   if (sessionId) {
     window.localStorage.setItem(SESSION_KEY, sessionId);
+  } else {
+    window.localStorage.removeItem(SESSION_KEY);
   }
 }
 
@@ -46,6 +48,18 @@ export const useAssistantStore = defineStore('assistant', {
         this.refreshMissions();
       }
     },
+    reset() {
+      this.sessionId = '';
+      this.history = [];
+      this.missions = [];
+      this.loading = false;
+      this.sending = false;
+      this.panelOpen = false;
+      this.bootstrapped = false;
+      this.context = null;
+      this.error = '';
+      persistSessionId('');
+    },
     closePanel() {
       this.panelOpen = false;
     },
@@ -67,6 +81,9 @@ export const useAssistantStore = defineStore('assistant', {
         this.error = '';
       } catch (error) {
         this.error = error.message;
+        if (error.message?.includes('Não autenticado')) {
+          this.reset();
+        }
       } finally {
         this.loading = false;
       }

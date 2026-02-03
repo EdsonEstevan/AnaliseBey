@@ -374,6 +374,7 @@ const bitSpecs: BitSpec[] = [
     id: string;
     name: string;
     username: string;
+    email: string;
   };
 
   function generateAccessKey(prefix = 'LAB') {
@@ -403,6 +404,7 @@ const bitSpecs: BitSpec[] = [
       data: {
         name: 'Edson',
         username: 'edson',
+        email: 'edson@analisebey.com',
         role: 'ADMIN',
         passwordHash: await bcrypt.hash(adminPassword, 10),
         passwordNote: adminPassword,
@@ -413,6 +415,7 @@ const bitSpecs: BitSpec[] = [
       data: {
         name: 'Visitante',
         username: 'visitante',
+        email: 'visitante@analisebey.com',
         role: 'VISITOR',
         passwordHash: null,
         passwordNote: 'Acesso aberto',

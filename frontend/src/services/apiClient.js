@@ -12,6 +12,20 @@ const api = axios.create({
   baseURL: normalizedBaseUrl,
 });
 
+let authToken = '';
+
+export function setApiAuthToken(token) {
+  authToken = token ?? '';
+}
+
+api.interceptors.request.use((config) => {
+  if (authToken) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${authToken}`;
+  }
+  return config;
+});
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {

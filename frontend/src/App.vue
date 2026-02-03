@@ -1,5 +1,17 @@
 <template>
-  <div class="app-shell min-h-screen bg-slate-950 text-slate-100 lg:flex">
+  <div
+    v-if="!authReady"
+    class="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100"
+  >
+    <div class="text-center">
+      <p class="text-sm uppercase tracking-[0.4em] text-slate-500">Carregando</p>
+      <p class="mt-2 text-xl font-semibold">Preparando o laboratório...</p>
+    </div>
+  </div>
+  <div v-else-if="!isAuthenticated" class="min-h-screen bg-slate-950 text-slate-100">
+    <RouterView />
+  </div>
+  <div v-else class="app-shell min-h-screen bg-slate-950 text-slate-100 lg:flex">
     <div
       v-if="isMobileMenuOpen"
       class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm lg:hidden z-20"
@@ -62,10 +74,11 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRoute, RouterLink, RouterView } from 'vue-router';
+import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router';
 
 import AssistantPanel from './components/assistant/AssistantPanel.vue';
 import { useAssistantStore } from './stores/assistant';
+import { useAuthStore } from './stores/auth';
 
 const menu = [
   { to: '/', label: 'Dashboard' },
@@ -94,14 +107,19 @@ const titles = {
 };
 
 const route = useRoute();
+const router = useRouter();
 const currentTitle = computed(() => titles[route.path] ?? 'Beyblade X');
+const publicRoutes = ['/login', '/register'];
 
 const assistant = useAssistantStore();
+const auth = useAuthStore();
 const routeContext = computed(() => ({
   route: route.fullPath,
   surface: titles[route.path] ?? 'Beyblade X',
   focus: currentTitle.value,
 }));
+const authReady = computed(() => auth.ready);
+const isAuthenticated = computed(() => auth.isAuthenticated);
 
 const isMobileMenuOpen = ref(false);
 const toggleMenu = () => {
@@ -112,14 +130,47 @@ const closeMenu = () => {
 };
 
 onMounted(() => {
-  assistant.bootstrap(routeContext.value);
+  auth.bootstrap();
 });
+
+watch(
+  () => [auth.ready, auth.isAuthenticated, route.path],
+  () => {
+    if (!auth.ready) return;
+    const isPublic = publicRoutes.includes(route.path);
+    if (!auth.isAuthenticated && !isPublic) {
+      const redirect = route.fullPath !== '/login' ? route.fullPath : undefined;
+      router.replace({ path: '/login', query: redirect ? { redirect } : undefined });
+      return;
+    }
+    if (auth.isAuthenticated && isPublic) {
+      const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : null;
+      router.replace(redirect && redirect !== '/login' ? redirect : '/');
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => ({ ready: auth.ready, authed: auth.isAuthenticated }),
+  ({ ready, authed }) => {
+    if (!ready) return;
+    if (authed) {
+      assistant.bootstrap(routeContext.value);
+    } else {
+      assistant.reset();
+    }
+  },
+  { immediate: true },
+);
 
 watch(
   () => route.path,
   () => {
     closeMenu();
-    assistant.updateContext(routeContext.value);
+    if (auth.ready && auth.isAuthenticated) {
+      assistant.updateContext(routeContext.value);
+    }
   }
 );
 </script>

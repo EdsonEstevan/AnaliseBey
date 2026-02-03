@@ -13,6 +13,10 @@ function normalizeUsername(value: string) {
   return value.trim().toLowerCase();
 }
 
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
 function normalizeAccessCode(value: string) {
   return value.trim().toUpperCase();
 }
@@ -22,6 +26,7 @@ export function mapAuthUser(user: User): AuthUser {
     id: user.id,
     name: user.name,
     username: user.username,
+    email: user.email,
     role: user.role,
     status: user.status,
     battleMilestone: user.battleMilestone,
@@ -44,6 +49,10 @@ function ensureActive(user: User) {
 
 async function findUserByUsername(username: string) {
   return prisma.user.findUnique({ where: { username } });
+}
+
+async function findUserByEmail(email: string) {
+  return prisma.user.findUnique({ where: { email } });
 }
 
 export async function loginWithPassword(username: string, password: string): Promise<AuthResult> {
@@ -73,6 +82,7 @@ type RegisterWithKeyPayload = {
   name: string;
   username: string;
   password: string;
+  email: string;
   accessCode: string;
 };
 
@@ -95,11 +105,18 @@ export async function registerWithAccessKey(payload: RegisterWithKeyPayload): Pr
     throw badRequest('Nome de usuário indisponível.');
   }
 
+  const normalizedEmail = normalizeEmail(payload.email);
+  const emailInUse = await findUserByEmail(normalizedEmail);
+  if (emailInUse) {
+    throw badRequest('Já existe um usuário com este e-mail.');
+  }
+
   const passwordHash = await bcrypt.hash(payload.password, 10);
   const user = await prisma.user.create({
     data: {
       name: payload.name.trim(),
       username: normalizedUsername,
+      email: normalizedEmail,
       passwordHash,
       role: 'MEMBER',
       status: 'ACTIVE',
