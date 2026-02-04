@@ -58,9 +58,22 @@
           </div>
         </div>
 
-        <div class="flex flex-col text-xs text-slate-400 sm:text-right">
-          <span class="font-semibold text-slate-200/90">Offline-first workspace</span>
-          <span>Vue 3 · Express API · Postgres</span>
+        <div class="flex items-center gap-4 text-right">
+          <div class="flex flex-col text-xs text-slate-400">
+            <span class="font-semibold text-slate-200/90">{{ userDisplayName }}</span>
+            <span class="text-[0.65rem] uppercase tracking-[0.35em] text-slate-500">{{ userRoleLabel }}</span>
+            <span class="mt-2">Offline-first workspace</span>
+            <span>Vue 3 · Express API · Postgres</span>
+          </div>
+          <button
+            class="inline-flex items-center gap-2 rounded-full border border-slate-700/70 bg-slate-900/70 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-800 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            aria-label="Sair da conta"
+            @click="handleLogout"
+            :disabled="isLoggingOut"
+          >
+            <span>{{ isLoggingOut ? 'Saindo...' : 'Sair' }}</span>
+          </button>
         </div>
       </header>
 
@@ -127,8 +140,19 @@ const routeContext = computed(() => ({
 }));
 const authReady = computed(() => auth.ready);
 const isAuthenticated = computed(() => auth.isAuthenticated);
+const userDisplayName = computed(() => auth.user?.name ?? auth.user?.username ?? 'Sessão ativa');
+const userRoleLabel = computed(() => {
+  const labels = {
+    ADMIN: 'Administrador',
+    MEMBER: 'Membro',
+    VISITOR: 'Visitante',
+  };
+  const role = auth.user?.role ?? 'MEMBER';
+  return labels[role] ?? role;
+});
 
 const isMobileMenuOpen = ref(false);
+const isLoggingOut = ref(false);
 const menuItems = computed(() => {
   const items = baseMenu.slice();
   if (canAccessAdmin.value) {
@@ -144,6 +168,20 @@ const toggleMenu = () => {
 };
 const closeMenu = () => {
   isMobileMenuOpen.value = false;
+};
+const handleLogout = async () => {
+  if (isLoggingOut.value) return;
+  isLoggingOut.value = true;
+  try {
+    auth.logout();
+    assistant.reset();
+    closeMenu();
+    await router.replace({ path: '/login' });
+  } catch (error) {
+    console.error('Falha ao sair da conta:', error);
+  } finally {
+    isLoggingOut.value = false;
+  }
 };
 
 onMounted(() => {
