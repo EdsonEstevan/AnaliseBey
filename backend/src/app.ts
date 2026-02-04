@@ -27,7 +27,12 @@ import { postsRouter } from './routes/postsRouter';
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+);
 app.use(
   cors({
     origin: '*',
