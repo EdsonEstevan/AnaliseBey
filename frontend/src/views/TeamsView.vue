@@ -174,15 +174,26 @@
               <p class="text-xs uppercase tracking-[0.35em] text-slate-500">Progresso pessoal</p>
               <h3 class="text-2xl font-semibold text-white">Níveis e XP na equipe atual</h3>
             </div>
-            <button
-              v-if="teamsStore.selectedTeamId"
-              type="button"
-              class="text-sm text-rose-300 disabled:opacity-40"
-              @click="leaveTeamAction(teamsStore.selectedTeamId)"
-              :disabled="leavingTeamId === teamsStore.selectedTeamId"
-            >
-              {{ leavingTeamId === teamsStore.selectedTeamId ? 'Saindo...' : 'Sair da equipe' }}
-            </button>
+            <div class="flex flex-wrap items-center gap-3">
+              <button
+                v-if="teamsStore.selectedTeamId"
+                type="button"
+                class="text-sm text-rose-300 disabled:opacity-40"
+                @click="leaveTeamAction(teamsStore.selectedTeamId)"
+                :disabled="leavingTeamId === teamsStore.selectedTeamId"
+              >
+                {{ leavingTeamId === teamsStore.selectedTeamId ? 'Saindo...' : 'Sair da equipe' }}
+              </button>
+              <button
+                v-if="isOwner && teamsStore.selectedTeamId"
+                type="button"
+                class="text-sm text-rose-400 underline decoration-dotted disabled:opacity-40"
+                @click="deleteTeamAction(teamsStore.selectedTeamId)"
+                :disabled="deletingTeamId === teamsStore.selectedTeamId"
+              >
+                {{ deletingTeamId === teamsStore.selectedTeamId ? 'Encerrando equipe...' : 'Encerrar equipe' }}
+              </button>
+            </div>
           </header>
           <div v-if="currentMembership" class="mt-4 space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-4 text-sm text-slate-300">
@@ -470,6 +481,7 @@ const submittingMissionId = ref('');
 const reviewingMissionId = ref('');
 const permissionSavingId = ref('');
 const leavingTeamId = ref('');
+const deletingTeamId = ref('');
 
 const canCreateTeams = computed(() => auth.user?.role && auth.user.role !== 'VISITOR');
 const reachedTeamCap = computed(() => teamsStore.mine.length >= 2);
@@ -603,6 +615,20 @@ async function leaveTeamAction(teamId) {
     missionFeedback.value = error.message || 'Erro ao sair da equipe.';
   } finally {
     leavingTeamId.value = '';
+  }
+}
+
+async function deleteTeamAction(teamId) {
+  if (!teamId) return;
+  if (!window.confirm('Encerrar equipe remove todas as missões e mensagens. Deseja continuar?')) return;
+  deletingTeamId.value = teamId;
+  try {
+    await teamsStore.deleteTeam(teamId);
+    missionFeedback.value = 'Equipe encerrada permanentemente.';
+  } catch (error) {
+    missionFeedback.value = error.message || 'Não foi possível encerrar a equipe.';
+  } finally {
+    deletingTeamId.value = '';
   }
 }
 

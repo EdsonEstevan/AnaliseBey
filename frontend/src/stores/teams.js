@@ -138,6 +138,13 @@ export const useTeamsStore = defineStore('teams', {
       const fallback = this.mine[0]?.id ?? '';
       await this.loadWorkspace(fallback);
     },
+    async deleteTeam(teamId) {
+      await api.delete(`/teams/${teamId}`);
+      this.disconnectChatStream();
+      await Promise.all([this.fetchAllTeams(), this.fetchMyTeams()]);
+      const fallback = this.mine[0]?.id ?? '';
+      await this.loadWorkspace(fallback);
+    },
     async sendMessage(content) {
       if (!this.selectedTeamId) return;
       const { data } = await api.post(`/teams/${this.selectedTeamId}/messages`, { content });

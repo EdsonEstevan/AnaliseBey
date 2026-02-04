@@ -295,6 +295,25 @@ export async function leaveTeam(user: AuthUser, teamId: string) {
   return { success: true };
 }
 
+export async function deleteTeam(user: AuthUser, teamId: string) {
+  const team = await prisma.team.findUnique({ where: { id: teamId } });
+  if (!team) {
+    throw new ApiError(404, 'Equipe não encontrada.');
+  }
+  if (team.ownerId !== user.id) {
+    throw new ApiError(403, 'Apenas o proprietário pode encerrar a equipe.');
+  }
+
+  await prisma.$transaction([
+    prisma.teamMission.deleteMany({ where: { teamId } }),
+    prisma.teamMessage.deleteMany({ where: { teamId } }),
+    prisma.teamMembership.deleteMany({ where: { teamId } }),
+    prisma.team.delete({ where: { id: teamId } }),
+  ]);
+
+  return { success: true };
+}
+
 export async function updateMemberPermissions(
   user: AuthUser,
   teamId: string,

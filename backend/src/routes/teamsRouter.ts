@@ -6,6 +6,7 @@ import {
   createTeamMission,
   getTeamDashboard,
   joinTeam,
+  deleteTeam,
   leaveTeam,
   listTeamMessages,
   listTeamMissions,
@@ -58,6 +59,11 @@ teamsRouter.post('/:teamId/join', async (req, res) => {
 
 teamsRouter.post('/:teamId/leave', async (req, res) => {
   const result = await leaveTeam(req.user!, req.params.teamId);
+  res.json(result);
+});
+
+teamsRouter.delete('/:teamId', async (req, res) => {
+  const result = await deleteTeam(req.user!, req.params.teamId);
   res.json(result);
 });
 
