@@ -917,6 +917,7 @@ import {
   BarElement,
   CategoryScale,
   Chart,
+  Filler,
   Legend,
   LinearScale,
   LineElement,
@@ -931,7 +932,7 @@ import { useBladersStore } from '../stores/bladers';
 import { useArenasStore } from '../stores/arenas';
 import { formatDate } from '../utils/format';
 
-Chart.register(ArcElement, BarElement, CategoryScale, Legend, LinearScale, LineElement, PointElement, Tooltip);
+Chart.register(ArcElement, BarElement, CategoryScale, Filler, Legend, LinearScale, LineElement, PointElement, Tooltip);
 
 const partsStore = usePartsStore();
 const combosStore = useCombosStore();
