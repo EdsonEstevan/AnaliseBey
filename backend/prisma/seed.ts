@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PartShareScope, PrismaClient, WorkspacePermissionScope } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 
@@ -8,6 +8,17 @@ import { Archetype, PartType } from '../src/types/enums';
 const prisma = new PrismaClient();
 
 const placeholder = (label: string) => `https://placehold.co/320x320?text=${encodeURIComponent(label)}`;
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
 
 type LineCode = 'BX' | 'UX' | 'CX' | 'XO';
 
@@ -101,8 +112,9 @@ function buildComboName(blade: string, ratchet: string, bit: string) {
 async function main() {
   await resetDatabase();
   const { edson, visitor } = await bootstrapDefaultUsers();
-  await seedWorkspace(edson, 'Edson');
-  await seedWorkspace(visitor, 'Visitante');
+  const sharedParts = await seedWorkspace(edson, 'Edson');
+  await seedWorkspace(visitor, 'Visitante', { partsMap: sharedParts.parts });
+  await seedCommunityPosts([edson, visitor]);
   console.log('Seed concluído.');
 }
 
@@ -393,6 +405,13 @@ const bitSpecs: BitSpec[] = [
     await prisma.combo.deleteMany();
     await prisma.arena.deleteMany();
     await prisma.part.deleteMany();
+    await prisma.postLike.deleteMany();
+    await prisma.postComment.deleteMany();
+    await prisma.post.deleteMany();
+    await prisma.teamMission.deleteMany();
+    await prisma.teamMessage.deleteMany();
+    await prisma.teamMembership.deleteMany();
+    await prisma.team.deleteMany();
     await prisma.accessKey.deleteMany();
     await prisma.user.deleteMany();
   }
@@ -433,29 +452,93 @@ const bitSpecs: BitSpec[] = [
       ),
     );
 
+    const defaultScopes: WorkspacePermissionScope[] = [
+      'PARTS_EDIT',
+      'USERS_MANAGE',
+      'ACCESS_KEYS_MANAGE',
+      'PUNISHMENTS_MANAGE',
+      'AUDIT_VIEW',
+    ];
+
+    await prisma.workspacePermission.createMany({
+      data: defaultScopes.map((scope) => ({
+        userId: edson.id,
+        grantedById: edson.id,
+        scope,
+        notes: 'Permissão padrão do administrador.',
+      })),
+    });
+
+    const shareGrants: { ownerId: string; granteeId: string; scope: PartShareScope; notes: string }[] = [
+      { ownerId: edson.id, granteeId: edson.id, scope: 'EDIT', notes: 'Mantém controle total.' },
+      { ownerId: edson.id, granteeId: visitor.id, scope: 'VIEW', notes: 'Visualização pública.' },
+    ];
+
+    await prisma.partShareGrant.createMany({
+      data: shareGrants,
+      skipDuplicates: true,
+    });
+
+    const labTeam = await prisma.team.create({
+      data: {
+        name: 'Lab Nova',
+        slug: slugify('Lab Nova'),
+        description: 'Equipe oficial de testes do laboratório.',
+        imageUrl: placeholder('Lab Nova'),
+        ownerId: edson.id,
+        memberships: {
+          create: {
+            userId: edson.id,
+            role: 'OWNER',
+            status: 'ACTIVE',
+            canManageMissions: true,
+          },
+        },
+      },
+    });
+
+    await prisma.teamMission.create({
+      data: {
+        teamId: labTeam.id,
+        title: 'Sincronizar inventário do laboratório',
+        description: 'Mapeie novas peças e combos coletados durante a semana para o dashboard compartilhado.',
+        xpReward: 40,
+        createdById: edson.id,
+        assignedToId: edson.id,
+      },
+    });
+
     return { edson, visitor } satisfies { edson: SeedWorkspaceUser; visitor: SeedWorkspaceUser };
   }
 
-  async function seedWorkspace(user: SeedWorkspaceUser, label: string) {
+  async function seedWorkspace(
+    user: SeedWorkspaceUser,
+    label: string,
+    options: { partsMap?: Record<string, string> } = {},
+  ) {
     const tag = `[${label}]`;
-    console.log(`${tag} Criando peças...`);
-    const parts: Record<string, string> = {};
-    for (const data of partsData) {
-      const part = await prisma.part.create({
-        data: {
-          userId: user.id,
-          name: data.name,
-          type: data.type,
-          variant: data.variant ?? null,
-          weight: data.weight ?? null,
-          archetype: data.archetype,
-          subArchetype: data.subArchetype ?? null,
-          tags: toJsonArray(data.tags),
-          notes: data.notes ?? null,
-          imageUrl: data.imageUrl ?? placeholder(data.name),
-        },
-      });
-      parts[data.name] = part.id;
+    const parts: Record<string, string> = options.partsMap ? { ...options.partsMap } : {};
+    if (!options.partsMap) {
+      console.log(`${tag} Criando peças compartilhadas...`);
+      for (const data of partsData) {
+        const part = await prisma.part.create({
+          data: {
+            userId: user.id,
+            name: data.name,
+            type: data.type,
+            variant: data.variant ?? null,
+            weight: data.weight ?? null,
+            archetype: data.archetype,
+            subArchetype: data.subArchetype ?? null,
+            tags: toJsonArray(data.tags),
+            notes: data.notes ?? null,
+            imageUrl: data.imageUrl ?? placeholder(data.name),
+          },
+        });
+        parts[data.name] = part.id;
+      }
+    } else {
+      console.log(`${tag} Reutilizando peças compartilhadas de Edson...`);
     }
 
     console.log(`${tag} Criando arenas...`);
@@ -632,12 +715,60 @@ const bitSpecs: BitSpec[] = [
     });
 
     console.log(`${tag} Workspace pronto.`);
+    return { parts } as const;
   }
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+
+  async function seedCommunityPosts(users: SeedWorkspaceUser[]) {
+    console.log('Criando posts públicos...');
+    const [primary, secondary] = users;
+    const posts = await Promise.all([
+      prisma.post.create({
+        data: {
+          userId: primary.id,
+          content:
+            'Explorando novas variações com assists CX. Compartilhe nos comentários quais peças vocês querem ver em testes de resistência.',
+          imageUrl: placeholder('Lab Post 1'),
+        },
+      }),
+      prisma.post.create({
+        data: {
+          userId: secondary.id,
+          content:
+            'Fiz upload de imagens das últimas scrims no Speed Crater. Feedbacks e ajustes de combos são bem-vindos!',
+          imageUrl: placeholder('Lab Post 2'),
+        },
+      }),
+    ]);
+
+    await prisma.postComment.createMany({
+      data: [
+        {
+          postId: posts[0].id,
+          userId: secondary.id,
+          content: 'Quero ver o Brave CX com o Lock Chip Valkyrie, parece promissor.',
+        },
+        {
+          postId: posts[1].id,
+          userId: primary.id,
+          content: 'Excelente registro! Vamos comparar com o dashboard antes de publicar.',
+        },
+      ],
+    });
+
+    await prisma.postLike.createMany({
+      data: [
+        { postId: posts[0].id, userId: secondary.id },
+        { postId: posts[0].id, userId: primary.id },
+        { postId: posts[1].id, userId: primary.id },
+      ],
+      skipDuplicates: true,
+    });
+  }
+  main()
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });

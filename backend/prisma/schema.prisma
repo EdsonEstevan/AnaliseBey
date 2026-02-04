@@ -31,6 +31,60 @@ enum AccessKeyStatus {
   REVOKED
 }
 
+enum WorkspacePermissionScope {
+  PARTS_EDIT
+  USERS_MANAGE
+  ACCESS_KEYS_MANAGE
+  PUNISHMENTS_MANAGE
+  AUDIT_VIEW
+}
+
+enum PartShareScope {
+  VIEW
+  EDIT
+}
+
+enum PunishmentType {
+  TEMP_BAN
+  PARTS_LOCK
+  KEYS_LOCK
+  ACCOUNT_LIMIT
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  USER_ROLE_CHANGED
+  USER_PUNISHED
+  USER_UNPUNISHED
+  ACCESS_KEY_CREATED
+  ACCESS_KEY_REVOKED
+  PERMISSION_GRANTED
+  PERMISSION_REVOKED
+  PART_PERMISSION_GRANTED
+  PART_PERMISSION_REVOKED
+  PASSWORD_RESET
+  DATA_TRANSFERRED
+}
+
+enum TeamRole {
+  OWNER
+  MEMBER
+}
+
+enum TeamMembershipStatus {
+  ACTIVE
+  PENDING
+}
+
+enum TeamMissionStatus {
+  OPEN
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 model Part {
   id        String   @id @default(cuid())
   userId    String
@@ -256,6 +310,24 @@ model User {
   assistantSessions AssistantSession[]
   issuedKeys  AccessKey[] @relation("OwnerKeys")
   claimedKeys AccessKey[] @relation("ClaimedKeys")
+  permissions WorkspacePermission[] @relation("UserPermissions")
+  grantedPermissions WorkspacePermission[] @relation("GrantedPermissions")
+  partShareGrants PartShareGrant[] @relation("PartShareOwners")
+  partShareAccess PartShareGrant[] @relation("PartShareGrantees")
+  punishments Punishment[] @relation("PunishmentTarget")
+  punishmentsIssued Punishment[] @relation("PunishmentIssuer")
+  auditLogs AdminAuditLog[] @relation("AuditActor")
+  auditTargets AdminAuditLog[] @relation("AuditTarget")
+  teamMemberships TeamMembership[]
+  teamMessages TeamMessage[]
+  teamsOwned Team[]
+  missionsCreated TeamMission[] @relation("TeamMissionCreator")
+  missionsAssigned TeamMission[] @relation("TeamMissionAssignee")
+  missionsSubmitted TeamMission[] @relation("TeamMissionSubmitter")
+  missionsApproved TeamMission[] @relation("TeamMissionApprover")
+  posts           Post[]
+  postComments    PostComment[]
+  postLikes       PostLike[]
 }
 
 model AccessKey {
@@ -275,4 +347,192 @@ model AccessKey {
 
   @@index([ownerId])
   @@index([claimedById])
+}
+
+model WorkspacePermission {
+  id          String                   @id @default(cuid())
+  userId      String
+  grantedById String
+  scope       WorkspacePermissionScope
+  notes       String?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime                 @default(now())
+
+  user      User @relation("UserPermissions", fields: [userId], references: [id])
+  grantedBy User @relation("GrantedPermissions", fields: [grantedById], references: [id])
+
+  @@index([userId, scope])
+  @@index([grantedById])
+}
+
+model PartShareGrant {
+  id         String          @id @default(cuid())
+  ownerId    String
+  granteeId  String
+  scope      PartShareScope  @default(VIEW)
+  notes      String?
+  revokedAt  DateTime?
+  createdAt  DateTime        @default(now())
+
+  owner   User @relation("PartShareOwners", fields: [ownerId], references: [id])
+  grantee User @relation("PartShareGrantees", fields: [granteeId], references: [id])
+
+  @@unique([ownerId, granteeId, scope])
+  @@index([granteeId, scope])
+}
+
+model Punishment {
+  id         String         @id @default(cuid())
+  userId     String
+  issuedById String
+  type       PunishmentType
+  reason     String
+  metadata   Json?
+  startsAt   DateTime       @default(now())
+  endsAt     DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime       @default(now())
+
+  user     User @relation("PunishmentTarget", fields: [userId], references: [id])
+  issuedBy User @relation("PunishmentIssuer", fields: [issuedById], references: [id])
+
+  @@index([userId, revokedAt])
+  @@index([issuedById])
+}
+
+model AdminAuditLog {
+  id           String      @id @default(cuid())
+  actorId      String
+  action       AuditAction
+  targetUserId String?
+  targetType   String?
+  targetId     String?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+
+  actor      User  @relation("AuditActor", fields: [actorId], references: [id])
+  targetUser User? @relation("AuditTarget", fields: [targetUserId], references: [id])
+
+  @@index([action])
+  @@index([targetUserId])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  imageUrl    String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner       User           @relation(fields: [ownerId], references: [id])
+  memberships TeamMembership[]
+  messages    TeamMessage[]
+  missions    TeamMission[]
+
+  @@index([ownerId])
+}
+
+model TeamMembership {
+  id        String                @id @default(cuid())
+  teamId    String
+  userId    String
+  role      TeamRole              @default(MEMBER)
+  status    TeamMembershipStatus  @default(ACTIVE)
+  createdAt DateTime              @default(now())
+  level     Int                   @default(1)
+  xp        Int                   @default(0)
+  canManageMissions Boolean       @default(false)
+  lastXpAt  DateTime?
+
+  team Team @relation(fields: [teamId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+model TeamMessage {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([teamId, createdAt])
+}
+
+model TeamMission {
+  id             String            @id @default(cuid())
+  teamId         String
+  title          String
+  description    String?
+  xpReward       Int               @default(25)
+  status         TeamMissionStatus @default(OPEN)
+  createdById    String
+  assignedToId   String?
+  submittedById  String?
+  submittedAt    DateTime?
+  submissionNote String?
+  reviewNote     String?
+  approvedById   String?
+  approvedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  team        Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy   User @relation("TeamMissionCreator", fields: [createdById], references: [id])
+  assignedTo  User? @relation("TeamMissionAssignee", fields: [assignedToId], references: [id])
+  submittedBy User? @relation("TeamMissionSubmitter", fields: [submittedById], references: [id])
+  approvedBy  User? @relation("TeamMissionApprover", fields: [approvedById], references: [id])
+
+  @@index([teamId])
+  @@index([status])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author   User          @relation(fields: [userId], references: [id])
+  comments PostComment[]
+  likes    PostLike[]
+
+  @@index([createdAt])
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
 }

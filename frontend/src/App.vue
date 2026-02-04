@@ -30,7 +30,7 @@
       </div>
       <nav class="p-4 flex flex-col gap-2 overflow-y-auto">
         <RouterLink
-          v-for="item in menu"
+          v-for="item in menuItems"
           :key="item.to"
           :to="item.to"
           class="px-4 py-3 rounded-xl text-sm font-medium transition hover:bg-slate-800/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
@@ -79,8 +79,9 @@ import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router';
 import AssistantPanel from './components/assistant/AssistantPanel.vue';
 import { useAssistantStore } from './stores/assistant';
 import { useAuthStore } from './stores/auth';
+import { canAccessAdminPanel } from './utils/accessControl';
 
-const menu = [
+const baseMenu = [
   { to: '/', label: 'Dashboard' },
   { to: '/parts', label: 'Peças' },
   { to: '/arenas', label: 'Arenas' },
@@ -89,6 +90,8 @@ const menu = [
   { to: '/simulator', label: 'Simular batalha' },
   { to: '/decks', label: 'Decks' },
   { to: '/bladers', label: 'Bladers' },
+  { to: '/teams', label: 'Equipes' },
+  { to: '/posts', label: 'Posts' },
   { to: '/analysis', label: 'Análises' },
   { to: '/settings', label: 'Configurações' },
 ];
@@ -102,8 +105,11 @@ const titles = {
   '/simulator': 'Simular batalha',
   '/decks': 'Decks 3on3',
   '/bladers': 'Bladers & Equipes',
+  '/teams': 'Equipes e Quartéis',
+  '/posts': 'Feed Comunitário',
   '/analysis': 'Análises e Rankings',
   '/settings': 'Configurações & Backup',
+  '/admin': 'Gerenciamento do Laboratório',
 };
 
 const route = useRoute();
@@ -113,6 +119,7 @@ const publicRoutes = ['/login', '/register'];
 
 const assistant = useAssistantStore();
 const auth = useAuthStore();
+const canAccessAdmin = computed(() => canAccessAdminPanel(auth.user));
 const routeContext = computed(() => ({
   route: route.fullPath,
   surface: titles[route.path] ?? 'Beyblade X',
@@ -122,6 +129,16 @@ const authReady = computed(() => auth.ready);
 const isAuthenticated = computed(() => auth.isAuthenticated);
 
 const isMobileMenuOpen = ref(false);
+const menuItems = computed(() => {
+  const items = baseMenu.slice();
+  if (canAccessAdmin.value) {
+    const alreadyExists = items.some((item) => item.to === '/admin');
+    if (!alreadyExists) {
+      items.splice(items.length - 1, 0, { to: '/admin', label: 'Gerenciamento' });
+    }
+  }
+  return items;
+});
 const toggleMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
 };

@@ -38,7 +38,7 @@
 <script setup>
 import StatBar from './StatBar.vue';
 
-const props = defineProps({
+defineProps({
   label: { type: String, default: '' },
   combo: { type: Object, default: null },
   insight: { type: Object, default: null },

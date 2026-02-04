@@ -1,4 +1,18 @@
-import { Archetype, BattleMode, BattleOutcome, ComboStatus, PartType } from './enums';
+import {
+  Archetype,
+  AuditAction,
+  BattleMode,
+  BattleOutcome,
+  ComboStatus,
+  PartShareScope,
+  PartType,
+  PunishmentType,
+  TeamMembershipStatus,
+  TeamMissionStatus,
+  TeamRole,
+  WorkspacePermissionScope,
+} from './enums';
+import { UserRole, UserStatus } from '@prisma/client';
 
 export type PartPayload = {
   name: string;
@@ -91,4 +105,139 @@ export type AssistantMissionStatus = 'PENDING' | 'ACTIVE' | 'COMPLETED' | 'BLOCK
 export type AssistantMissionUpdatePayload = {
   status: AssistantMissionStatus;
   note?: string;
+};
+
+export type AdminUserFilters = {
+  search?: string;
+  role?: UserRole;
+  status?: UserStatus;
+};
+
+export type PermissionGrantPayload = {
+  userId: string;
+  scope: WorkspacePermissionScope;
+  notes?: string;
+  expiresAt?: string | Date | null;
+};
+
+export type PermissionRevokePayload = {
+  permissionId: string;
+  reason?: string;
+};
+
+export type PartShareGrantPayload = {
+  granteeId: string;
+  scope: PartShareScope;
+  notes?: string;
+};
+
+export type PartShareRevokePayload = {
+  grantId: string;
+  reason?: string;
+};
+
+export type PunishmentPayload = {
+  userId: string;
+  type: PunishmentType;
+  reason: string;
+  durationHours?: number;
+  endsAt?: string | Date | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type PunishmentLiftPayload = {
+  punishmentId: string;
+  reason?: string;
+};
+
+export type AuditQueryFilters = {
+  action?: AuditAction;
+  targetUserId?: string;
+  limit?: number;
+};
+
+export type TeamCreatePayload = {
+  name: string;
+  description?: string;
+  imageUrl?: string | null;
+};
+
+export type TeamJoinPayload = {
+  teamId: string;
+};
+
+export type TeamMessagePayload = {
+  content: string;
+};
+
+export type TeamMemberPermissionPayload = {
+  canManageMissions: boolean;
+};
+
+export type TeamMissionCreatePayload = {
+  title: string;
+  description?: string;
+  xpReward?: number;
+  assignedToId?: string | null;
+};
+
+export type TeamMissionSubmitPayload = {
+  note?: string;
+};
+
+export type TeamMissionReviewPayload = {
+  action: 'APPROVE' | 'REJECT';
+  note?: string;
+};
+
+export type TeamMissionDTO = {
+  id: string;
+  teamId: string;
+  title: string;
+  description?: string | null;
+  xpReward: number;
+  status: TeamMissionStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: {
+    id: string;
+    name: string | null;
+    username: string;
+  };
+  assignedTo?: {
+    id: string;
+    name: string | null;
+    username: string;
+  } | null;
+  submittedBy?: {
+    id: string;
+    name: string | null;
+    username: string;
+  } | null;
+  approvedBy?: {
+    id: string;
+    name: string | null;
+    username: string;
+  } | null;
+  submissionNote?: string | null;
+  reviewNote?: string | null;
+  submittedAt?: Date | null;
+  approvedAt?: Date | null;
+};
+
+export type TeamListItem = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  ownerId: string;
+  memberCount: number;
+  membership?: {
+    role: TeamRole;
+    status: TeamMembershipStatus;
+    level: number;
+    xp: number;
+    canManageMissions: boolean;
+  } | null;
 };

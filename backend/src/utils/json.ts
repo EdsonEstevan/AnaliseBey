@@ -14,7 +14,7 @@ export function ensureStringArray(value: unknown): string[] {
     try {
       const parsed = JSON.parse(value);
       return Array.isArray(parsed) ? parsed.map((item) => String(item)) : [];
-    } catch (err) {
+    } catch (_err) {
       return [];
     }
   }

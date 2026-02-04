@@ -15,7 +15,7 @@
 </template>
 
 <script setup>
-const props = defineProps({
+defineProps({
   label: { type: String, required: true },
   value: { type: Number, default: 0 },
   accent: { type: Boolean, default: false },

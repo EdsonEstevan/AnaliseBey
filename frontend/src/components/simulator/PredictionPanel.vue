@@ -54,7 +54,7 @@
 import ComboScoreCard from './ComboScoreCard.vue';
 import ReadinessBadge from './ReadinessBadge.vue';
 
-const props = defineProps({
+defineProps({
   result: { type: Object, default: null },
   comboA: { type: Object, default: null },
   comboB: { type: Object, default: null },

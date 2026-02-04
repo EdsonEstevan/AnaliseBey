@@ -21,6 +21,9 @@ import { analyticsRouter } from './routes/analyticsRouter';
 import { assistantRouter } from './routes/assistantRouter';
 import { authRouter } from './routes/authRouter';
 import { accessKeysRouter } from './routes/accessKeysRouter';
+import { adminRouter } from './routes/adminRouter';
+import { teamsRouter } from './routes/teamsRouter';
+import { postsRouter } from './routes/postsRouter';
 
 const app = express();
 
@@ -40,6 +43,9 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/access-keys', accessKeysRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/posts', postsRouter);
+app.use('/api/teams', teamsRouter);
 app.use('/api/parts', partsRouter);
 app.use('/api/arenas', arenasRouter);
 app.use('/api/combos', combosRouter);

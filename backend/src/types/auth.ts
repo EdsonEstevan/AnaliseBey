@@ -1,5 +1,7 @@
 import { UserRole, UserStatus } from '@prisma/client';
 
+import { PartShareScope, PunishmentType, WorkspacePermissionScope } from './enums';
+
 export type AuthUser = {
   id: string;
   name: string;
@@ -8,6 +10,10 @@ export type AuthUser = {
   role: UserRole;
   status: UserStatus;
   battleMilestone: number;
+  permissions: WorkspacePermissionScope[];
+  sharedPartsScope: PartShareScope | null;
+  sharedPartAccess: Record<string, PartShareScope>;
+  activePunishments: PunishmentType[];
 };
 
 export type AuthTokenPayload = {

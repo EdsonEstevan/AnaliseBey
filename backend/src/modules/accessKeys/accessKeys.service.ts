@@ -4,6 +4,7 @@ import { AccessKey, Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma';
 import { AuthUser } from '../../types/auth';
 import { ApiError } from '../../utils/apiError';
+import { hasWorkspaceScope } from '../../utils/permissions';
 
 export type AccessKeyScope = 'owned' | 'all';
 
@@ -38,7 +39,8 @@ function serializeKey(key: AccessKeyWithRelations | AccessKey) {
 }
 
 export async function listAccessKeys(user: AuthUser, scope: AccessKeyScope = 'owned') {
-  const where = scope === 'all' && user.role === 'ADMIN' ? {} : { ownerId: user.id };
+  const canSeeAll = hasWorkspaceScope(user, 'ACCESS_KEYS_MANAGE');
+  const where = scope === 'all' && canSeeAll ? {} : { ownerId: user.id };
   const keys = await prisma.accessKey.findMany({
     where,
     include: {
@@ -82,7 +84,7 @@ export async function revokeAccessKey(user: AuthUser, keyId: string) {
   if (!key) {
     throw new ApiError(404, 'Convite não encontrado.');
   }
-  if (key.ownerId !== user.id && user.role !== 'ADMIN') {
+  if (key.ownerId !== user.id && !hasWorkspaceScope(user, 'ACCESS_KEYS_MANAGE')) {
     throw new ApiError(403, 'Você não pode revogar convites de outro usuário.');
   }
   if (key.status === 'REVOKED') {

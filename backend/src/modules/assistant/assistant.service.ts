@@ -773,15 +773,22 @@ async function syncMissions(sessionId: string, stats: WorkspaceStats, context?: 
   return missions.map(decorateMission);
 }
 
+function scrubControlCharacters(value: string) {
+  let result = '';
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if ((code >= 0 && code <= 31) || (code >= 127 && code <= 159)) {
+      result += ' ';
+    } else {
+      result += char;
+    }
+  }
+  return result;
+}
+
 function normalizeMessage(message: string) {
-  return message
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0000-\u001f]/g, ' ')
-    .replace(/[\u007f-\u009f]/g, ' ')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ');
+  const prepared = scrubControlCharacters(message.trim().toLowerCase().normalize('NFD'));
+  return prepared.replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
 }
 
 function normalizeKeyword(value: string) {

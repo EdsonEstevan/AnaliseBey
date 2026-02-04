@@ -8,8 +8,14 @@ import { AuthTokenPayload, AuthUser } from '../types/auth';
 import { mapAuthUser } from '../modules/auth/auth.service';
 import { ApiError } from '../utils/apiError';
 
+const authUserInclude = {
+  permissions: true,
+  partShareAccess: true,
+  punishments: true,
+};
+
 async function resolveUser(userId: string): Promise<AuthUser> {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: authUserInclude });
   if (!user) {
     throw new ApiError(401, 'Sessão expirada. Faça login novamente.');
   }
@@ -19,16 +25,23 @@ async function resolveUser(userId: string): Promise<AuthUser> {
   return mapAuthUser(user);
 }
 
-function extractToken(header?: string) {
+function extractTokenFromHeader(header?: string) {
   if (!header) return null;
   const [type, token] = header.split(' ');
   if (type?.toLowerCase() !== 'bearer' || !token) return null;
   return token;
 }
 
+function resolveRequestToken(req: Request) {
+  const headerToken = extractTokenFromHeader(req.headers.authorization);
+  if (headerToken) return headerToken;
+  const queryToken = typeof req.query?.token === 'string' ? req.query.token : null;
+  return queryToken;
+}
+
 export async function authenticate(req: Request, _res: Response, next: NextFunction) {
   try {
-    const token = extractToken(req.headers.authorization);
+    const token = resolveRequestToken(req);
     if (!token) {
       throw new ApiError(401, 'Autenticação necessária.');
     }

@@ -1763,34 +1763,6 @@ function aggregateRoundsForComboIds(comboIdsSet, sourceRounds = roundsDataset.va
   };
 }
 
-function aggregateForComboIds(comboIdsSet, sourceBattles = filteredBattles.value) {
-  const stats = { total: 0, wins: 0, losses: 0, draws: 0 };
-  if (!comboIdsSet || comboIdsSet.size === 0) return { ...stats, winrate: '0.0' };
-  for (const battle of sourceBattles) {
-    const ids = battleComboIds(battle);
-    const hasA = ids.a && comboIdsSet.has(ids.a);
-    const hasB = ids.b && comboIdsSet.has(ids.b);
-    if (!hasA && !hasB) continue;
-    stats.total += 1;
-    if (hasA && hasB) {
-      stats.draws += 1;
-      continue;
-    }
-    if (battle.result === 'DRAW') {
-      stats.draws += 1;
-      continue;
-    }
-    const winnerIsA = battle.result === 'COMBO_A';
-    if ((winnerIsA && hasA) || (!winnerIsA && hasB)) stats.wins += 1;
-    else stats.losses += 1;
-  }
-  const decisive = stats.total - stats.draws;
-  return {
-    ...stats,
-    winrate: decisive > 0 ? ((stats.wins / decisive) * 100).toFixed(1) : '0.0',
-  };
-}
-
 const comboIndex = computed(() => {
   const map = new Map();
   combosStore.items.forEach((combo) => map.set(combo.id, combo));
@@ -2161,7 +2133,6 @@ const bladerAggregateStats = computed(() =>
 
 const bladerSummaryCards = computed(() => {
   const aggregate = bladerAggregateStats.value;
-  const totalPilots = aggregate.totalPilots || bladersStore.items.length || 1;
   const totalDecks = bladersStore.items.reduce((sum, blader) => sum + (blader.deckCount ?? (blader.decks?.length ?? 0)), 0);
   return [
     {

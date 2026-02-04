@@ -8,6 +8,8 @@ const normalizedBaseUrl = envBaseUrl
     })()
   : '/api';
 
+export const apiBaseUrl = normalizedBaseUrl;
+
 const api = axios.create({
   baseURL: normalizedBaseUrl,
 });

@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-const props = defineProps({
+defineProps({
   combo: { type: Object, default: null },
   insight: { type: Object, default: null },
 });

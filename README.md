@@ -10,6 +10,14 @@ Aplicação full-stack para catalogar peças, montar combos, registrar batalhas 
 - **Decks 3on3:** console para montar decks de até sete combos/turnos e aplicar automaticamente nas batalhas simultâneas do compositor.
 - **Bladers & Equipes:** cadastro completo dos pilotos, associação direta com decks e preenchimento automático nas batalhas para consolidar estatísticas.
 
+### Portal de gerenciamento (Admin)
+
+- Painel `/admin` dedicado para o Edson (ou qualquer usuário com escopos `USERS_MANAGE` / `ACCESS_KEYS_MANAGE` / `PUNISHMENTS_MANAGE` / `AUDIT_VIEW`). O menu lateral só exibe o item quando o token tem algum desses escopos.
+- Cards resumem totais de usuários, convites, punições ativas e eventos de auditoria recentes. Todos os dados vêm de `/api/admin/*` e recarregam sob demanda.
+- Os blocos do painel permitem: conceder/revogar escopos, compartilhar peças (VIEW/EDIT) com qualquer membro, alterar papéis, resetar senhas, emitir punições temporárias e manipular chaves de acesso sem sair da tela.
+- A tabela de auditoria mostra quem executou cada ação sensível (`PERMISSION_GRANTED`, `USER_PUNISHED`, etc.) e disponibiliza o metadata bruto do evento.
+- No seed padrão o Edson já recebe todos os escopos, o visitante ganha acesso somente leitura às peças do Edson e toda nova conta recebe automaticamente `VIEW` do inventário compartilhado do Edson.
+
 ### Bladers e vínculos de batalha
 
 - Novo CRUD disponível em `/api/bladers` (listar, criar, atualizar e remover). Os registros carregam estatísticas calculadas (total, vitórias, empates, derrotas e winrate), decks vinculados e combos mais utilizados.
@@ -76,6 +84,8 @@ cp backend/.env.example backend/.env   # ajuste se quiser outro caminho para o S
 npm run setup:db                       # migrations + seed (idempotente)
 npm run dev                            # abre http://localhost:5173 (frontend) + http://localhost:4000 (API)
 ```
+
+> ✅ A nova migration `20260204_admin_controls` precisa ser aplicada em qualquer ambiente existente (`cd backend && npx prisma migrate deploy`). Em dev, o `npm run setup:db` já recria todas as tabelas e executa o seed com as permissões e compartilhamentos padrão.
 
 Para subir em modo “produção” local:
 

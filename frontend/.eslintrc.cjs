@@ -8,7 +8,6 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'plugin:vue/vue3-recommended',
-    'plugin:prettier/recommended',
   ],
   parserOptions: {
     ecmaVersion: 'latest',
@@ -16,5 +15,10 @@ module.exports = {
   },
   rules: {
     'vue/multi-word-component-names': 'off',
+    'vue/singleline-html-element-content-newline': 'off',
+    'vue/max-attributes-per-line': 'off',
+    'vue/html-self-closing': 'off',
+    'vue/attributes-order': 'off',
+    'vue/multiline-html-element-content-newline': 'off',
   },
 };

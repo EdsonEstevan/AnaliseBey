@@ -14,6 +14,9 @@ import BladersView from '../views/BladersView.vue';
 import BattleSimulatorView from '../views/BattleSimulatorView.vue';
 import LoginView from '../views/LoginView.vue';
 import RegisterView from '../views/RegisterView.vue';
+import AdminView from '../views/AdminView.vue';
+import TeamsView from '../views/TeamsView.vue';
+import PostsView from '../views/PostsView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -33,7 +36,10 @@ const router = createRouter({
     { path: '/simulator', component: BattleSimulatorView },
     { path: '/decks', component: DecksView },
     { path: '/bladers', component: BladersView },
+    { path: '/teams', component: TeamsView },
+    { path: '/posts', component: PostsView },
     { path: '/settings', component: SettingsView },
+    { path: '/admin', component: AdminView },
   ],
 });
 

@@ -9,6 +9,7 @@ import {
 } from '../modules/accessKeys/accessKeys.service';
 import { authenticate } from '../middleware/auth';
 import { ApiError } from '../utils/apiError';
+import { hasWorkspaceScope } from '../utils/permissions';
 
 export const accessKeysRouter = Router();
 
@@ -18,8 +19,8 @@ accessKeysRouter.get('/', async (req, res) => {
   const schema = z.object({ scope: z.enum(['owned', 'all']).optional() });
   const { scope } = schema.parse(req.query);
   const effectiveScope: AccessKeyScope = scope === 'all' ? 'all' : 'owned';
-  if (effectiveScope === 'all' && req.user!.role !== 'ADMIN') {
-    throw new ApiError(403, 'Apenas administradores podem listar todos os convites.');
+    if (effectiveScope === 'all' && !hasWorkspaceScope(req.user!, 'ACCESS_KEYS_MANAGE')) {
+      throw new ApiError(403, 'Permissão insuficiente para listar todos os convites.');
   }
   const keys = await listAccessKeys(req.user!, effectiveScope);
   res.json({ keys });

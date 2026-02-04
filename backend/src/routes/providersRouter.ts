@@ -29,7 +29,7 @@ providersRouter.post('/parts/import', async (req, res) => {
 
   const parts = await partsProvider.fetchParts();
   for (const payload of parts) {
-    await createPart(req.user!.id, payload);
+    await createPart(req.user!, payload);
   }
   res.json({ imported: parts.length });
 });
