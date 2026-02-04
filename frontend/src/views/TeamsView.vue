@@ -34,8 +34,47 @@
           <textarea v-model="createForm.description" class="input mt-1" rows="3" placeholder="Propósito, lineup, estilos" :disabled="!canCreateTeams"></textarea>
         </label>
         <label class="text-sm">
-          <span class="text-slate-400">Imagem (URL)</span>
-          <input v-model="createForm.imageUrl" class="input mt-1" type="url" placeholder="https://..." :disabled="!canCreateTeams" />
+          <span class="text-slate-400">Imagem da equipe</span>
+          <div class="mt-1 space-y-2">
+            <input
+              v-model="createForm.imageUrl"
+              class="input"
+              type="url"
+              placeholder="Cole uma URL ou faça upload"
+              :disabled="!canCreateTeams"
+            />
+            <div class="flex flex-wrap items-center gap-3 text-sm">
+              <button
+                type="button"
+                class="rounded-xl border border-slate-700 px-4 py-2 text-slate-200 disabled:opacity-50"
+                :disabled="!canCreateTeams || teamImageUploading"
+                @click="triggerTeamImagePicker"
+              >
+                {{ teamImageUploading ? 'Enviando imagem...' : 'Selecionar arquivo' }}
+              </button>
+              <button
+                v-if="createForm.imageUrl"
+                type="button"
+                class="text-xs text-slate-400 underline"
+                :disabled="teamImageUploading"
+                @click="clearTeamImage"
+              >
+                Remover imagem
+              </button>
+            </div>
+            <p class="text-[0.7rem] text-slate-500">Aceita PNG/JPG até 5MB. O arquivo será hospedado automaticamente.</p>
+            <div v-if="createForm.imageUrl" class="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
+              <img :src="createForm.imageUrl" alt="Prévia da equipe" class="w-full rounded-xl object-cover" />
+            </div>
+          </div>
+          <input
+            ref="teamImageInput"
+            type="file"
+            class="hidden"
+            accept="image/*"
+            :disabled="!canCreateTeams"
+            @change="handleTeamImageSelected"
+          />
         </label>
         <p class="text-xs text-amber-400" v-if="!canCreateTeams">Visitantes não podem criar ou ingressar em equipes.</p>
         <p class="text-xs text-amber-400" v-else-if="reachedTeamCap">Limite de duas equipes atingido. Saia de uma equipe para abrir espaço.</p>
@@ -402,6 +441,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useTeamsStore } from '../stores/teams';
 import { useAuthStore } from '../stores/auth';
 import { formatDate } from '../utils/format';
+import { uploadImage } from '../services/uploadService';
 
 const teamsStore = useTeamsStore();
 const auth = useAuthStore();
@@ -422,6 +462,8 @@ const chatInput = ref('');
 const createFeedback = ref('');
 const missionFeedback = ref('');
 const chatScroller = ref(null);
+const teamImageInput = ref(null);
+const teamImageUploading = ref(false);
 
 const missionSaving = ref(false);
 const submittingMissionId = ref('');
@@ -486,6 +528,9 @@ function resetCreateForm() {
   createForm.name = '';
   createForm.description = '';
   createForm.imageUrl = '';
+  if (teamImageInput.value) {
+    teamImageInput.value.value = '';
+  }
 }
 
 function resetMissionForm() {
@@ -507,6 +552,35 @@ async function handleCreate() {
     resetCreateForm();
   } catch (error) {
     createFeedback.value = error.message || 'Erro ao criar equipe.';
+  }
+}
+
+function triggerTeamImagePicker() {
+  if (!canCreateTeams.value) return;
+  teamImageInput.value?.click();
+}
+
+function clearTeamImage() {
+  createForm.imageUrl = '';
+  if (teamImageInput.value) {
+    teamImageInput.value.value = '';
+  }
+}
+
+async function handleTeamImageSelected(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  teamImageUploading.value = true;
+  createFeedback.value = '';
+  try {
+    const { url } = await uploadImage(file);
+    createForm.imageUrl = url;
+    createFeedback.value = 'Imagem enviada com sucesso.';
+  } catch (error) {
+    createFeedback.value = error.message || 'Falha ao enviar imagem.';
+  } finally {
+    teamImageUploading.value = false;
+    event.target.value = '';
   }
 }
 

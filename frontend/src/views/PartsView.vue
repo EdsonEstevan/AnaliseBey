@@ -120,17 +120,32 @@
           <input v-model="form.tags" type="text" class="input mt-1" />
         </label>
         <label class="text-sm">
-          <span class="text-slate-400">Imagem (URL)</span>
-          <div class="mt-1 flex gap-2">
-            <input v-model="form.imageUrl" type="url" class="input" placeholder="https://..." />
-            <button
-              type="button"
-              class="px-3 min-w-[120px] rounded-lg border border-slate-700 text-xs text-slate-200"
-              :disabled="uploadingImage"
-              @click="triggerFilePicker"
-            >
-              {{ uploadingImage ? 'Enviando...' : 'Upload' }}
-            </button>
+          <span class="text-slate-400">Imagem (arquivo ou URL)</span>
+          <div class="mt-1 space-y-2">
+            <input v-model="form.imageUrl" type="url" class="input" placeholder="Cole uma URL ou envie um arquivo" />
+            <div class="flex flex-wrap items-center gap-3 text-sm">
+              <button
+                type="button"
+                class="px-3 min-w-[140px] rounded-lg border border-slate-700 text-slate-200 disabled:opacity-50"
+                :disabled="uploadingImage"
+                @click="triggerFilePicker"
+              >
+                {{ uploadingImage ? 'Enviando imagem...' : 'Selecionar arquivo' }}
+              </button>
+              <button
+                v-if="form.imageUrl"
+                type="button"
+                class="text-xs text-slate-400 underline"
+                :disabled="uploadingImage"
+                @click="removePartImage"
+              >
+                Remover imagem
+              </button>
+            </div>
+            <p class="text-[0.7rem] text-slate-500">PNG/JPG até 5MB. A imagem é hospedada automaticamente.</p>
+            <div v-if="form.imageUrl" class="rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
+              <img :src="form.imageUrl" alt="Prévia da peça" class="w-full rounded-xl object-cover" />
+            </div>
           </div>
           <input
             ref="fileInput"
@@ -538,10 +553,20 @@ function resetForm() {
   form.notes = '';
   form.tags = '';
   form.imageUrl = '';
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
 }
 
 function triggerFilePicker() {
   fileInput.value?.click();
+}
+
+function removePartImage() {
+  form.imageUrl = '';
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
 }
 
 async function handleFileSelected(event) {
